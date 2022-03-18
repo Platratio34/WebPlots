@@ -36,12 +36,20 @@ function updatePerms(str) {
     perms = JSON.parse(str)
     effected = document.querySelectorAll('[data-perm]');
     for(i = 0; i < effected.length; i++) {
-        has = hasPerm(effected[i].dataset.perm)
-        // console.log("perm: " + effected[i].dataset.perm + "; " + has)
-        if(has) {
-            effected[i].style.display = "inline-block"
+        if(effected[i].dataset.perm == "!any") {
+            if(perms.length == 0) {
+                effected[i].style.display = "inline-block"
+            } else {
+                effected[i].style.display = "none"
+            }
         } else {
-            effected[i].style.display = "none"
+            has = hasPerm(effected[i].dataset.perm)
+            // console.log("perm: " + effected[i].dataset.perm + "; " + has)
+            if(has) {
+                effected[i].style.display = "inline-block"
+            } else {
+                effected[i].style.display = "none"
+            }
         }
     }
 }
