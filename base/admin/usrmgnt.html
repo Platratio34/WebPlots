@@ -62,7 +62,8 @@
 							<div id="changePerms.cPerms"></div><br>
 						</div>
 						<div id="setPass" style="display:none">
-							New Password: <input id="setPass.new1" type="password" placeholder="Type the password" autocomplete="new-password" oninput="checkNewPass()"></input><br>
+							New Password: <input id="setPass.new1" type="password" placeholder="Type the password" autocomplete="new-password" onchange="checkNewPass();validatePass()"></input>
+							<output id="setPass.invalid" style="display:none; color:red">Must contain at least 10 charecters, at least 1 special charecter, at least 1 letter, and may not contain `^'&amp"*()[]{}|,\.&lsaquo;&rsaquo;/</output><br>
 							New Password: <input id="setPass.new2" type="password" placeholder="Type the password again" autocomplete="new-password" oninput="checkNewPass()"></input>
 							<output id="setPass.new2.bad" style="display:none; color:red">The passwords must match</output><br>
 							<button onclick="setPass()">Set Password</button>
@@ -75,6 +76,9 @@
 			let lshow = undefined
 			let users;
 			let cUser;
+
+			let passValid = false;
+
 			function showSection(section) {
 				if(lshow) {
 					lshow.style.display = "none"
@@ -182,8 +186,10 @@
 				b = document.getElementById('setPass.new2.bad')
 				if(p1 == p2) {
 					b.style.display = 'none'
+					return true;
 				} else {
-					b.style.display = 'block'
+					b.style.display = 'inline-block'
+					return false;
 				}
 			}
 
@@ -191,8 +197,56 @@
 				if(!cUser) {
 					alert("Select a user first")
 				}
+				if(!checkNewPass()) {
+					return;
+				}
+				if(!passValid) {
+					return;
+				}
+
 				pass = document.getElementById("setPass.new1").value
 				httpPostAsync("/admin/user", "", "action=setPass&user="+cUser.name+"&pass="+pass, function(res){alert(res)})
+			}
+
+			function validatePass() {
+				let nPass = document.getElementById("setPass.new1").value;
+				if(nPass.length < 10) {
+					invalidPass();
+					return;
+				}
+				if(!containsSpecialChars(nPass)) {
+					invalidPass();
+					return;
+				}
+				if(!containsAlpha(nPass)) {
+					invalidPass();
+					return;
+				}
+				if(containsInvalid(nPass)) {
+					invalidPass();
+					return;
+				}
+				passValid = true;
+				document.getElementById("setPass.invalid").style.display = "none";
+			}
+
+			function invalidPass() {
+				if(document.getElementById("setPass.new1").value.length > 0)
+					document.getElementById("setPass.invalid").style.display = "inline-block";
+				passValid = false;
+			}
+
+			function containsSpecialChars(str) {
+	  			const specialChars = /[!@#$%*_+-=|?~0123456789]/;
+				return specialChars.test(str);
+			}
+			function containsAlpha(str) {
+	  			const specialChars = /[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ]/;
+				return specialChars.test(str);
+			}
+			function containsInvalid(str) {
+	  			const specialChars = /[`'"^&*()\[\]{}|,.<>\\\/]/;
+				return specialChars.test(str);
 			}
 		</script>
 	</body>
