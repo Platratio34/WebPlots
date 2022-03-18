@@ -248,11 +248,15 @@ public class DataServer extends NanoHTTPD {
 			return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "Invalid Post Request");
 		} else {
 			if(path.length > 0) {
-				if(path[0].equals("style")) {
+				if(path[0].equals("")) {
+					Response r = newFixedLengthResponse(Response.Status.TEMPORARY_REDIRECT, MIME_PLAINTEXT, "");
+		            r.addHeader("Location", "/home");
+		            return r;
+				} else if(path[0].equals("style")) {
 					return newFixedLengthResponse(Response.Status.OK, "text/css", PageLoader.getCSS(printPath(path,1)));
 				} else if(path[0].equals("script")) {
 					return newFixedLengthResponse(Response.Status.OK, "text/javascript", PageLoader.getJS(printPath(path,1)));
-				} else if(path[0].equals("home") || path[0].equals("")) {
+				} else if(path[0].equals("home")) {
 					return newFixedLengthResponse(Response.Status.OK, MIME_HTML, PageLoader.getPage("home"));
 				} else if(path[0].equals("favicon.ico")) {
 					try {
@@ -290,10 +294,15 @@ public class DataServer extends NanoHTTPD {
 						return newFixedLengthResponse(Response.Status.UNAUTHORIZED, MIME_HTML, PageLoader.getDefaultPage("Login First"));
 					}
 				} else if(path[0].equals("plot")) {
+//					System.out.println(user);
 					if(user == DefaultUser) {
-						Response r = newFixedLengthResponse(Response.Status.REDIRECT, MIME_HTML, "");
-			            r.addHeader("Location", "/login?target=/plot/"+path[1]+"/" + path[2]);
-			            System.out.println("Thing");
+//			            System.out.println("Thing");
+						Response r = newFixedLengthResponse(Response.Status.REDIRECT_SEE_OTHER, MIME_PLAINTEXT, "");
+						String dest = "/login?target=/plot";
+						if(path.length >= 2) {
+							dest += "/" + printPath(path, 1);
+						}
+			            r.addHeader("Location", dest);
 			            return r;
 					}
 					if(!user.checkPerm("plots")) {
@@ -344,6 +353,10 @@ public class DataServer extends NanoHTTPD {
 								ex.printStackTrace();
 								return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "SQL ERROR");
 							}
+						} else {
+							Response r = newFixedLengthResponse(Response.Status.TEMPORARY_REDIRECT, MIME_PLAINTEXT, "");
+				            r.addHeader("Location", "/plot/" + path[1] + "/edit");
+				            return r;
 						}
 					} else if(path.length == 3) {
 						try {
@@ -364,7 +377,7 @@ public class DataServer extends NanoHTTPD {
 							if(path[2].equals("edit")) {
 								rset = stmt.executeQuery("select * from sharePlots where plot = \""+id+"\" and user = \""+user.getName()+"\"");
 								if(!rset.next()) {
-									Response r = newFixedLengthResponse(Response.Status.REDIRECT, MIME_HTML, "");
+									Response r = newFixedLengthResponse(Response.Status.TEMPORARY_REDIRECT, MIME_HTML, "");
 						            r.addHeader("Location", "/plot/"+path[1]+"/veiw");
 						            return r;
 								}
