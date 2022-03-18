@@ -291,6 +291,9 @@ public class DataServer extends NanoHTTPD {
 				} else if(path.length == 1 && path[0].equals("login")) {
 					return newFixedLengthResponse(Response.Status.OK, MIME_HTML, PageLoader.getPage("login"));
 				} else if(path[0].equals("admin")) {
+					if(user == DefaultUser) {
+			            return loginRedirect(path);
+					}
 					if(user.checkPerm("admin")) {
 						if(path.length == 2) {
 							if(path[1].equals("users")) {
@@ -312,19 +315,11 @@ public class DataServer extends NanoHTTPD {
 					if(user != DefaultUser) {
 						return newFixedLengthResponse(Response.Status.OK, MIME_HTML, PageLoader.getPage(printPath(path)));
 					} else {
-						return newFixedLengthResponse(Response.Status.UNAUTHORIZED, MIME_HTML, PageLoader.getDefaultPage("Login First"));
+						return loginRedirect(path);
 					}
 				} else if(path[0].equals("plot")) {
-//					System.out.println(user);
 					if(user == DefaultUser) {
-//			            System.out.println("Thing");
-						Response r = newFixedLengthResponse(Response.Status.REDIRECT_SEE_OTHER, MIME_PLAINTEXT, "");
-						String dest = "/login?target=/plot";
-						if(path.length >= 2) {
-							dest += "/" + printPath(path, 1);
-						}
-			            r.addHeader("Location", dest);
-			            return r;
+			            return loginRedirect(path);
 					}
 					if(!user.checkPerm("plots")) {
 						return newFixedLengthResponse(Response.Status.UNAUTHORIZED, MIME_HTML, PageLoader.getDefaultPage("Invalid Permissions; Must have permesion \"plots\""));
@@ -556,4 +551,13 @@ public class DataServer extends NanoHTTPD {
         return saltStr;
 
     }
+	
+	private Response loginRedirect(String[] path) {
+		return loginRedirect(printPath(path));
+	}
+	private Response loginRedirect(String path) {
+		Response r = newFixedLengthResponse(Response.Status.REDIRECT_SEE_OTHER, MIME_PLAINTEXT, "");
+        r.addHeader("Location", "/plot/" + path + "/edit");
+        return r;
+	}
 }
