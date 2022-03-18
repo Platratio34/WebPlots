@@ -48,22 +48,22 @@
 					<td>
 						<div id="newUser" style="display:none">
 							New User:<br>
-							Username: <input type="text" id="newUser.name"></input><br>
-							Password: <input type="password" id="newUser.pass"></input><br>
-							Permissions: <input type="text" id="newUser.perm"></input><br>
+							Username: <input type="text" id="newUser.name" placeholder="Username"></input><br>
+							Password: <input type="password" id="newUser.pass" placeholder="Password" autocomplete="new-password"></input><br>
+							Permissions: <input type="text" id="newUser.perm" placeholder="Permissions"></input><br>
 							<button onclick="newUser()">Create</button>
 						</div>
 						<div id="changePerms" style="display:none">
-							Add Permission: <input type="text" id="changePerms.add"></input> <button onclick="changePerm('add')">Add</button><br>
+							Add Permission: <input type="text" id="changePerms.add" placeholder="Permission"></input> <button onclick="changePerm('add')">Add</button><br>
 							<br>
-							Remove Permission: <input type="text" id="changePerms.remove"></input> <button onclick="changePerm('remove')">Remove</button><br>
+							Remove Permission: <input type="text" id="changePerms.remove" placeholder="Permission"></input> <button onclick="changePerm('remove')">Remove</button><br>
 							<br>
 							Current Permissions:<br>
 							<div id="changePerms.cPerms"></div><br>
 						</div>
 						<div id="setPass" style="display:none">
-							New Password: <input id="setPass.new1" type="test" placeholder="Type the password" oninput="checkNewPass()"></input><br>
-							New Password: <input id="setPass.new2" type="test" placeholder="Type the password again" oninput="checkNewPass()"></input>
+							New Password: <input id="setPass.new1" type="password" placeholder="Type the password" autocomplete="new-password" oninput="checkNewPass()"></input><br>
+							New Password: <input id="setPass.new2" type="password" placeholder="Type the password again" autocomplete="new-password" oninput="checkNewPass()"></input>
 							<output id="setPass.new2.bad" style="display:none; color:red">The passwords must match</output><br>
 							<button onclick="setPass()">Set Password</button>
 						</div>
