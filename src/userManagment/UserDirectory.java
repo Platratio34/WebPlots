@@ -156,7 +156,7 @@ public class UserDirectory {
 		try {
 			Connection conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
 			Statement stmt = conn.createStatement();
-			String strSelect = "insert into users values (\""+user.getName()+"\", \""+user.getPassHash()+"\", \""+user.getPerms()+"\", -1);";
+			String strSelect = "insert into users values (\""+user.getName()+"\", \""+user.getPassHash()+"\", \""+user.getPerms(false)+"\", -1);";
 			/*ResultSet rset = */stmt.execute(strSelect);
 //			System.out.println(rset);
 			users.put(user.getName(), user);
@@ -178,6 +178,20 @@ public class UserDirectory {
 			str += "\"" + u.getName() + "\"";
 		}
 		return str + "]";
+	}
+
+	public static void setPass(User user, String pass) {
+		if(!users.containsKey(user.getName())) {
+			return;
+		}
+		user.setPass(pass);
+		try {
+			Connection conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
+			Statement stmt = conn.createStatement();
+			stmt.execute("update users set passHash = "+user.getPassHash()+" where name =  \""+user.getName()+"\";");
+		} catch (SQLException ex) {
+			ex.printStackTrace();
+		}
 	}
 	
 }

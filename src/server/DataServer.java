@@ -243,6 +243,27 @@ public class DataServer extends NanoHTTPD {
 							}
 						}
 					}
+				} else if(path[0].equals("user")) {
+					if(user == DefaultUser) {
+						return newFixedLengthResponse(Response.Status.UNAUTHORIZED, MIME_PLAINTEXT, "You must be looged in to make user changes");
+					}
+					if(path.length == 2) {
+						if(path[1].equals("setPass")) {
+							if(!postBody.containsKey("oPass")) {
+								return newFixedLengthResponse(Response.Status.BAD_REQUEST, mimeType, "Missing body elements: {\"oPass\"}");
+							}
+							if(!postBody.containsKey("nPass")) {
+								return newFixedLengthResponse(Response.Status.BAD_REQUEST, mimeType, "Missing body elements: {\"nPass\"}");
+							}
+							String oPass = postBody.get("oPass").get(0);
+							String nPass = postBody.get("nPass").get(0);
+							if(!user.checkPass(oPass)) {
+								return newFixedLengthResponse(Response.Status.UNAUTHORIZED, MIME_PLAINTEXT, "Current password must be provided");
+							}
+							UserDirectory.setPass(user, nPass);
+							return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "Set password for user " + user.getName());
+						}
+					}
 				}
 			}
 			return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "Invalid Post Request");
