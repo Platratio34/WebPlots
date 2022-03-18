@@ -557,7 +557,7 @@ public class DataServer extends NanoHTTPD {
 	}
 	private Response loginRedirect(String path) {
 		Response r = newFixedLengthResponse(Response.Status.REDIRECT_SEE_OTHER, MIME_PLAINTEXT, "");
-        r.addHeader("Location", "/plot/" + path + "/edit");
+        r.addHeader("Location", "/login?target=/" + path);
         return r;
 	}
 }
