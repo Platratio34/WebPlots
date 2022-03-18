@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Peter Light Ploter</title>
+		<link rel="stylesheet" href="/style/base">
+		<script src="/script/base" charset="utf-8"></script>
+    	<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+	</head>
+
+	<body onload="init();initL()">
+
+		<div class="navPane">
+			<div class="userDropdown">
+				<p class="dropbtn" id="userName">User</p>
+				<div class="dropdown-content" id="userDropList">
+				</div>
+			</div>
+			<h1>Peter Light Ploter</h1>
+			<table class="navTable">
+				<tr>
+					<td><a class="navLink" href="/home">Home</a></td>
+					<td><a class="navLink" href="/plot">Plots</td>
+					<td data-perm="admin" style="display:none"><a class="navLink" href="/admin">Admin Dashboard</a></td>
+				</tr>
+			</table>
+		</div>
+		<table>
+			<tr>
+				<td>
+					<div id="plotCanvas"></div>
+				</td>
+				<td>
+					<div id="debug"></div><br>
+				</td>
+			</tr>
+		</table>
+		<h2>DMX Overveiw</h2>
+		<div id="dmxCanvas"></div>
+
+	</body>
+
+	<script>
+		var plot = %PlotData%;
+		var data = %Data%;
+		var data2 = {
+			size:[50,50],
+			lights: [
+				{
+					type:"dim",
+					pos:[10,10],
+					dir:0,
+					selected:false
+				},
+				{
+					type:"cs-spot",
+					pos:[25,10],
+					dir:230,
+					selected:false
+				},
+				{
+					type:"ap-150",
+					pos:[10,20],
+					dir:0,
+					selected:false
+				},
+				{
+					type:"cs-spot-db",
+					pos:[25,20],
+					dir:-230,
+					selected:false
+				}
+			]
+		}
+		var canvas;
+		var ctx;
+		var plotWidth = data.size[0];
+		var plotHeight = data.size[1];
+		var scaleF = 16;
+		var scaleH = scaleF/2
+
+		var debugT;
+
+		var selected;
+		var selectedOrigin;
+
+		var clipboard;
+		var showClipboard = true;
+
+		var dmxCanvas;
+		var dmxPatch = Array(512);
+
+		var changed = false;
+
+		function initL() {
+			// data = data2;
+			// plotWidth = data.size[0];
+			// plotHeight = data.size[1];
+			debugT = document.getElementById("debug");
+			log2("Loaded");
+		}
+
+		let main = new p5( ( sketch ) => {
+			sketch.setup = () => {
+				canvas = sketch.createCanvas(plotWidth * scaleF, plotHeight * scaleF);
+				canvas.parent('plotCanvas');
+				sketch.frameRate(30);
+				for (let element of document.getElementsByClassName("p5Canvas")) {
+					element.addEventListener("contextmenu", (e) => e.preventDefault());
+				}
+			};
+
+			sketch.draw = () => {
+
+				if(sketch.mouseIsPressed) {
+					let mouseX = sketch.mouseX;
+					let mouseY = sketch.mouseY;
+					let mouseButton = sketch.mouseButton;
+					if(mouseX >= 0 && mouseY >= 0 && mouseX <= sketch.width && mouseY <= sketch.height) {
+						if(mouseButton === sketch.LEFT) {
+							let miss = true;
+							for(var i = 0; i < data.lights.length; i++) {
+								var light = data.lights[i];
+								var mPos = mouseOnGrid();
+								if(mPos[0] == light.pos[0] && mPos[1] == light.pos[1]) {
+									miss = false;
+									if(selected != light) {
+										selectObj(light)
+									}
+								}
+							}
+							for(var i = 0; i < data.bars.length; i++) {
+								var bar = data.bars[i];
+								var mPos = mouseOnGrid();
+								if(mPos[0] == bar.pos[0] && mPos[1] == bar.pos[1]) {
+									miss = false;
+									if(selected != bar) {
+										selectObj(bar);
+									}
+								}
+							}
+							if(miss) {
+								unselect();
+							}
+						}
+					}
+				}
+
+				sketch.background("#444444");
+				var dark = true;
+				sketch.noStroke();
+				sketch.fill("#222222");
+				for(i = 0; i < plotWidth; i++) {
+					if(i%2==0) {
+						dark = true;
+					} else {
+						dark = false;
+					}
+					for(j = 0; j < plotHeight; j+=2) {
+						if(dark) {
+							sketch.rect(i*scaleF,j*scaleF,scaleF,scaleF);
+						} else {
+							dark = true;
+							j++;
+							sketch.rect(i*scaleF,j*scaleF,scaleF,scaleF);
+						}
+					}
+				}
+				sketch.strokeWeight(1)
+				for(i = 0; i < data.bars.length; i++) {
+					this.drawObj(data.bars[i]);
+				}
+				for(i = 0; i < data.lights.length; i++) {
+					this.drawObj(data.lights[i]);
+				}
+				if(selected) {
+					sketch.textSize(14);
+					sketch.noStroke();
+					sketch.fill("#eee");
+					sketch.text(selected.type, 5, 16);
+					sketch.text(selected.pos, 5, 32);
+					sketch.text(selected.dir+"\xB0", 5, 48);
+					if(selected.type == "bar") {
+						sketch.text(selected.length, 5, 64);
+					} else {
+						if(selected.dmx) {
+							sketch.text("DMX mode: "+selected.dmx.mode+" ch", 5, 64);
+							sketch.text("DMX adr: "+selected.dmx.uni+"/"+selected.dmx.adr, 5, 80);
+						}
+					}
+				}
+				if(clipboard && showClipboard) {
+					clipboard.pos = mouseOnGrid();
+					drawObjO(clipboard, 128);
+				}
+			}
+
+			this.drawObj = (obj) => {
+				this.drawObjO(obj, 255);
+			}
+
+			this.drawObjO = (obj, op) => {
+				var lp = gridAToCanvas(obj.pos);
+				sketch.translate(lp[0], lp[1]);
+				sketch.rotate(toRad(obj.dir));
+				sketch.scale(scaleH/10);
+				if(obj.selected) {
+					let c = sketch.color("#fe0");
+					c.setAlpha(op);
+					sketch.stroke(c);
+					sketch.strokeWeight(2)
+				} else {
+					let c = sketch.color("#ccc");
+					c.setAlpha(op);
+					sketch.stroke(c);
+					sketch.strokeWeight(1)
+				}
+				if(obj.type == "dim") {
+					let c = sketch.color("#aaa");
+					c.setAlpha(op);
+					sketch.fill(c);
+					sketch.circle(0,0,20);
+				} else if(obj.type == "ap-150") {
+					let c = sketch.color("#aaa");
+					c.setAlpha(op);
+					sketch.fill(c);
+					sketch.quad(-10, -6.6, -4, 6.6, 4, 6.6, 10, -6.6);
+				} else if(obj.type == "cs-spot") {
+					let c = sketch.color("#aaa");
+					c.setAlpha(op);
+					sketch.fill(c);
+					sketch.beginShape();
+					sketch.vertex(-4, -20);
+					sketch.vertex(-4, 5);
+					sketch.vertex(-2, 15);
+					sketch.vertex(2, 15);
+					sketch.vertex(4, 5);
+					sketch.vertex(4, -20);
+					sketch.endShape(sketch.CLOSE);
+				} else if(obj.type == "cs-spot-db") {
+					let c = sketch.color("#00f");
+					c.setAlpha(op);
+					sketch.fill(c);
+					sketch.beginShape();
+					sketch.vertex(-4, -20);
+					sketch.vertex(-4, 5);
+					sketch.vertex(-2, 15);
+					sketch.vertex(2, 15);
+					sketch.vertex(4, 5);
+					sketch.vertex(4, -20);
+					sketch.endShape(sketch.CLOSE);
+				} else if(obj.type == "bar") {
+					if(obj.selected) {
+						let c = sketch.color("#ee0");
+						c.setAlpha(op);
+						sketch.stroke(c);
+					} else {
+						let c = sketch.color("#888");
+						c.setAlpha(op);
+						sketch.stroke(c);
+					}
+					let c = sketch.color("#555");
+					c.setAlpha(op);
+					sketch.fill(c);
+					sketch.rect(-obj.length/0.1, -3, obj.length*20, 6);
+				}
+				sketch.resetMatrix();
+			}
+
+			this.mouseOnGrid = () => {
+				return [Math.floor(sketch.mouseX/scaleF), Math.floor(sketch.mouseY/scaleF)];
+			}
+		});
+
+		let patchDisp = new p5( ( sketch ) => {
+
+			sketch.setup = () => {
+				dmxCanvas = sketch.createCanvas(512*1, 10);
+				dmxCanvas.parent('dmxCanvas');
+				sketch.frameRate(10);
+			};
+
+			sketch.draw = () => {
+				sketch.noStroke();
+				dmxPatch = Array(512);
+				let maxUni = 1;
+				for(i = 0; i < data.lights.length; i++) {
+					var light = data.lights[i];
+					if(light.dmx) {
+						maxUni = Math.max(maxUni, light.dmx.uni);
+						// console.log(light.dmx);
+						let aAdr = light.dmx.adr+((light.dmx.uni-1)*512);
+						// console.log(aAdr);
+						for(j = 0; j < light.dmx.mode; j++) {
+							if(dmxPatch[aAdr+j]) {
+								dmxPatch[aAdr+j].confict = true;
+								dmxPatch[aAdr+j].sel |= light.selected;
+								dmxPatch[aAdr+j].light = undefined;
+							} else {
+								dmxPatch[aAdr+j] = {
+									confict:false,
+									sel:light.selected,
+									light:light
+								}
+							}
+						}
+					}
+				}
+
+				sketch.resizeCanvas((512*3)+16, (10*maxUni) + (5*maxUni) + 15);
+				let y = (10*maxUni) + (5*maxUni);
+				sketch.fill("#888");
+				sketch.rect(0, y, 10, 10);
+				sketch.text("Dim", 11, y+10);
+				sketch.fill("#688");
+				sketch.rect(40, y, 10, 10);
+				sketch.text("AP-150", 51, y+10);
+				sketch.fill("#886");
+				sketch.rect(100, y, 10, 10);
+				sketch.text("CS-Spot", 111, y+10);
+				sketch.fill("#668");
+				sketch.rect(170, y, 10, 10);
+				sketch.text("CS-Spot DB", 181, y+10);
+				for(u = 1; u <= maxUni; u++) {
+					sketch.fill("#444")
+					sketch.rect(16, (u-1)*15, 512*3, 10);
+					sketch.fill("#aaa")
+					sketch.textSize(14);
+					sketch.text(u, 0, (u-1)*15+10)
+					for(i = 1; i <= 512; i++) {
+						let adr = i+((u-1)*512);
+						if(dmxPatch[adr] != undefined) {
+							if(dmxPatch[adr].sel) {
+								if(dmxPatch[adr].confict) {
+									sketch.fill("#a50");
+								} else {
+									sketch.fill("#aa0");
+								}
+							} else {
+								if(dmxPatch[adr].confict) {
+									sketch.fill("#a00")
+								} else {
+									let l = dmxPatch[adr].light;
+									if(l.type == "dim") {
+										sketch.fill("#888");
+									} else if(l.type == "ap-150") {
+										sketch.fill("#688");
+									} else if(l.type == "cs-spot") {
+										sketch.fill("#886");
+									} else if(l.type == "cs-spot-db") {
+										sketch.fill("#668");
+									}
+								}
+							}
+							sketch.rect(((i-1)*3)+16, (u-1)*15, 3, 10);
+						}
+					}
+				}
+			};
+		});
+
+		function selectObj(obj) {
+			if(selected) {
+				selected.selected = false;
+			}
+			selected = obj;
+			selected.selected = true;
+		}
+		function unselect() {
+
+			if(selected) {
+				selected.selected = false;
+			}
+			selected = undefined
+		}
+
+		function canvasToGrid(x, y) {
+			return [Math.floor(x/scaleF), Math.floor(y/scaleF)];
+		}
+
+		function gridToCanvas(x, y) {
+			return [x*scaleF+scaleH, y*scaleF+scaleH];
+		}
+		function gridAToCanvas(a) {
+			return gridToCanvas(a[0], a[1]);
+		}
+
+		function toDeg(angle) {
+			return angle * (180 / Math.PI);
+		}
+		function toRad(angle) {
+			return angle * (Math.PI / 180);
+		}
+
+		function log2(msg) {
+			debugT.innerHTML = msg;
+		}
+	</script>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Peter Light Ploter</title>
+		<link rel="stylesheet" href="/style/base">
+		<script src="/script/base" charset="utf-8"></script>
+	</head>
+
+	<body onload="init();initL()">
+
+		<div class="navPane">
+			<div class="userDropdown">
+				<p class="dropbtn" id="userName">User</p>
+				<div class="dropdown-content" id="userDropList">
+				</div>
+			</div>
+			<h1>Peter Light Ploter</h1>
+			<table class="navTable">
+				<tr>
+					<td><a class="navLink" href="/home">Home</a></td>
+					<td data-perm="admin" style="display:none"><a class="navLink" href="/admin">Admin Dashboard</a></td>
+				</tr>
+			</table>
+		</div>
+		<div>
+
+			<br>
+			<table id="plotList"></table>
+			<button onclick="newPlot()">Create New Plot</button>
+			<!-- <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p> -->
+		</div>
+
+	</body>
+
+	<script>
+		var plots;
+
+		function initL() {
+			httpGetAsync("/plot/list", function(res){
+				// alert(res);
+				if(res == "SQL ERROR") {
+					return;
+				}
+				plots = perms = JSON.parse(res);
+				// console.log(plots);
+				plotList = document.getElementById("plotList")
+				plotList.innerHTML = "<tr><td style='min-width:50px'>Name</td><td style='min-width:150px'>Description</td><td style='min-width:75px'>Owner</td></tr>";
+				for(i = 0; i < plots.length; i++) {
+					plot = plots[i];
+					var tr = document.createElement("tr");
+					plotList.appendChild(tr);
+					var td0 = document.createElement("td");
+					tr.appendChild(td0);
+					var a = document.createElement("a");
+					td0.appendChild(a);
+					td0.className = "borderd";
+					a.textContent = plot.name;
+					a.href = "/plot/" + plot.id + "/edit";
+					a.className = "navLink";
+
+					var td1 = document.createElement("td");
+					tr.appendChild(td1);
+					td1.className = "borderd";
+					td1.textContent = plot.desc;
+
+					var td2 = document.createElement("td");
+					tr.appendChild(td2);
+					td2.className = "borderd";
+					td2.textContent = plot.owner;
+					// plotList.innerHTML += "<tr><td><a class=\"navLink\" href=\"/plot/"+plot.id"\">"+plot.name+"</a></td><td>"+plot.desc+"</td></tr>";
+				}
+			})
+		}
+
+		function newPlot() {
+			let name = prompt("Plot Name", "Name");
+			if(name != null && name != "") {
+				let desc = prompt("Plot Description", "Description");
+				if(desc != null && desc != "") {
+					httpPostAsync2("/plot/new", "" , "name="+name+"&desc="+desc, function(res) {
+						// console.log(res);
+						if(res.status == 200) {
+							initL();
+						} else {
+							alert(res.responseText);
+						}
+					});
+				}
+			}
+		}
+	</script>
+</html>
