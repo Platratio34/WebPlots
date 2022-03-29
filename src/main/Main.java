@@ -8,7 +8,7 @@ public class Main {
 	public static DataServer dataServ;
 	
 	public static void main(String[] args) {
-		dataServ = new DataServer("localhost", 1080, new DataStorage());
+		System.out.println("Starting Server . . .");
 		ServerRunner.run(DataServer.class);
 	}
 }

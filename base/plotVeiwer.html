@@ -25,6 +25,7 @@
 				</tr>
 			</table>
 		</div>
+		<h2 id="title"></h2>
 		<table>
 			<tr>
 				<td>
@@ -97,6 +98,8 @@
 			// plotWidth = data.size[0];
 			// plotHeight = data.size[1];
 			debugT = document.getElementById("debug");
+			document.getElementById("title").innerHTML = plot.name;
+			document.title = plot.name + " | Peter Light Ploter";
 			log2("Loaded");
 		}
 

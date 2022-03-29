@@ -25,37 +25,56 @@
 				</tr>
 			</table>
 		</div>
+		<h2 id="title"></h2>
+		<button onclick="switchEdit()">Edit Title, Description, or Share</button>
 		<table>
 			<tr>
-				<td>
-					<div id="plotCanvas"></div>
-				</td>
-				<td>
-					<div id="debug"></div><br>
-					<button onclick="savePlot()">Save Plot</button>
+				<div id="detailEdit" style="display:none">
+					<br>
+					<div id="titleEdit">
+						Title: <input type="text" id="edit.title" onchange="updateTitle()"></input><br>
+						Desc: <input type="text" id="edit.desc" onchange="updateDesc()"></input><br>
+					</div>
+					<div id="share">
+						Share: <input type="text" id="share.usr" placeholder="User"></input> Shared with: <output id="share.usrs"></output><br>
+						<button onclick="share(false)">Share</button>
+						<button onclick="share(true)">Unshare</button>
+					</div>
+					<br>
+				</div>
+			</tr>
+			<tr>
+				<div id="plotEdit">
+					<td>
+						<div id="plotCanvas"></div>
+					</td>
+					<td>
+						<div id="debug"></div><br>
+						<button onclick="savePlot()">Save Plot</button>
 
-					<div id="selectedParms" style="display:none">
-						<button id="addDMXButton" onClick="addDMX()" style="display:none">Add DMX</button>
-						<div id="DMX" style="display:none">
-							<h3>DMX</h3>
-							DMX Mode: <input id="dmx.mode" type="number"></input><br>
-							DMX Addr: <input id="dmx.adr" type="text"></input>
-							<button onclick="patch()">Patch</button>
+						<div id="selectedParms" style="display:none">
+							<button id="addDMXButton" onClick="addDMX()" style="display:none">Add DMX</button>
+							<div id="DMX" style="display:none">
+								<h3>DMX</h3>
+								DMX Mode: <input id="dmx.mode" type="number"></input><br>
+								DMX Addr: <input id="dmx.adr" type="text"></input>
+								<button onclick="patch()">Patch</button>
+							</div>
 						</div>
-					</div>
-					<div id="length" style="display:none">
-						Length: <input id="length.val" type="number" onchange="selected.length = parseInt(document.getElementById('length.val').value)"></input>
-					</div>
+						<div id="length" style="display:none">
+							Length: <input id="length.val" type="number" onchange="selected.length = parseInt(document.getElementById('length.val').value)"></input>
+						</div>
 
-					<div id="createObjs" style="display:block">
-						<h3>Create Object</h3>
-						<button onclick="clipboard=createObj('dim'); showClipboard=true">Dim</button>
-						<button onclick="clipboard=createObj('cs-spot'); showClipboard=true">CS Spot</button>
-						<button onclick="clipboard=createObj('cs-spot-db'); showClipboard=true">CS Spot DB</button>
-						<button onclick="clipboard=createObj('ap-150'); showClipboard=true">AP-150</button>
-						<button onclick="clipboard=createObj('bar'); showClipboard=true">Bar</button>
-					</div>
-				</td>
+						<div id="createObjs" style="display:block">
+							<h3>Create Object</h3>
+							<button onclick="clipboard=createObj('dim'); showClipboard=true">Dim</button>
+							<button onclick="clipboard=createObj('cs-spot'); showClipboard=true">CS Spot</button>
+							<button onclick="clipboard=createObj('cs-spot-db'); showClipboard=true">CS Spot DB</button>
+							<button onclick="clipboard=createObj('ap-150'); showClipboard=true">AP-150</button>
+							<button onclick="clipboard=createObj('bar'); showClipboard=true">Bar</button>
+						</div>
+					</td>
+				</div>
 			</tr>
 		</table>
 		<h2>DMX Overveiw</h2>
@@ -115,12 +134,21 @@
 
 		var changed = false;
 
+		var showPlot = true;
+
 		function initL() {
 			// data = data2;
 			// plotWidth = data.size[0];
 			// plotHeight = data.size[1];
 			debugT = document.getElementById("debug");
 			log2("Loaded");
+			document.getElementById("edit.title").value = plot.name;
+			document.getElementById("edit.desc").value = plot.desc;
+			document.getElementById("title").innerHTML = plot.name;
+			document.title = plot.name + " | Peter Light Ploter";
+			httpGetAsync("getEditors", function(res) {
+				document.getElementById("share.usrs").value = res;
+			});
 		}
 
 		let main = new p5( ( sketch ) => {
@@ -222,12 +250,14 @@
 									if(selected == data.bars[i]) {
 										data.bars.splice(i,1);
 									}
+									changed = true;
 								}
 							} else {
 								for(i = 0; i < data.lights.length; i++) {
 									if(selected == data.lights[i]) {
 										data.lights.splice(i,1);
 									}
+									changed = true;
 								}
 							}
 						}
@@ -458,7 +488,7 @@
 							sketch.rect(((i-1)*3)+16, (u-1)*15, 3, 10);
 							if(adr+1 < dmxPatch.length) {
 								if(dmxPatch[adr+1]) {
-									if(dmxPatch[adr].light != dmxPatch[adr+1].light) {
+									if(dmxPatch[adr].light != dmxPatch[adr+1].light && dmxPatch[adr].light != undefined) {
 										if(dmxPatch[adr].light.type == dmxPatch[adr+1].light.type) {
 											let l = dmxPatch[adr].light;
 											if(l.type == "dim") {
@@ -579,8 +609,8 @@
 					document.getElementById("dmx.mode").value = selected.dmx.mode;
 					document.getElementById("dmx.adr").value = selected.dmx.uni+"/"+selected.dmx.adr;
 				}
+				changed = true;
 			}
-			changed = true;
 		}
 
 		function patch() {
@@ -608,18 +638,21 @@
 						selected.dmx.adr=parseInt(adr[1]);
 					}
 				}
+				changed = true;
 			}
-			changed = true;
 		}
 
 		function leave() {
 			if(changed) {
-				if(window.confirm("Leave without Saving?")) {
-					window.location.href = "/plot";
+				if(window.confirm("Are you sure you want to Quit?")) {
+					if(window.confirm("Save before Quiting?")) {
+						savePlot();
+					}
+				} else {
+					return;
 				}
-			} else {
-				window.location.href = "/plot";
 			}
+			window.location.href = "/plot";
 		}
 
 		function toDeg(angle) {
@@ -632,5 +665,65 @@
 		function log2(msg) {
 			debugT.innerHTML = msg;
 		}
+
+		function share(un) {
+			let user = document.getElementById("share.usr").value;
+			let action = "share";
+			if(un) {
+				action = "unshare";
+			}
+			httpPostAsync2("share", "", "user=" + user + "&action=" + action, function(res) {
+				if(res.status == 200) {
+					// if(un) {
+					// 	alert("Unshared plot with " + user);
+					// } else {
+					// 	alert("Shared plot with " + user);
+					// }
+					httpGetAsync("getEditors", function(res) {
+						document.getElementById("share.usrs").value = res;
+					});
+				} else {
+					alert("Failed to " + action + " plot");
+				}
+			})
+		}
+
+		function switchEdit() {
+			if(showPlot) {
+				showPlot = false;
+				document.getElementById("plotEdit").style.display = "none";
+				document.getElementById("detailEdit").style.display = "block";
+			} else {
+				showPlot = true;
+				document.getElementById("plotEdit").style.display = "block";
+				document.getElementById("detailEdit").style.display = "none";
+			}
+		}
+
+		function updateTitle() {
+			let nT = document.getElementById("edit.title").value
+			if(nT != plot.name) {
+				plot.name = nT;
+				document.getElementById("title").innerHTML = plot.name;
+				document.title = plot.name;
+				httpPostAsync2("save", "", "title="+nT, function(res) {
+					if(res.status != 200) {
+						alert(res.responseText);
+					}
+				})
+			}
+		}
+		function updateDesc() {
+			let nT = document.getElementById("edit.desc").value
+			if(nT != plot.desc) {
+				plot.desc = nT;
+				httpPostAsync2("save", "", "desc="+nT, function(res) {
+					if(res.status != 200) {
+						alert(res.responseText);
+					}
+				})
+			}
+		}
+
 	</script>
 </html>

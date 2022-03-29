@@ -16,8 +16,6 @@ import java.io.FileInputStream;
 
 public class DataServer extends NanoHTTPD {
 	
-	private DataStorage data;
-	
 	private static String sQLUrl = "jdbc:mysql://localhost:3306/webPlots?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC";
 	private static String sQLUser = "peter";
 	private static String sQLPass = "admin";
@@ -26,13 +24,11 @@ public class DataServer extends NanoHTTPD {
 	
 	private static User DefaultUser = new User("Default","");
 	
-	public DataServer(String hostname, int port, DataStorage data) {
+	public DataServer(String hostname, int port) {
 		super(hostname, port);
-		this.data = data;
 	}
 	public DataServer() {
 		super("localhost", 80);
-		data = new DataStorage();
 		UserDirectory.updateUsers();
 	}
 	
@@ -47,13 +43,11 @@ public class DataServer extends NanoHTTPD {
 		
 		Response.Status status = Response.Status.INTERNAL_ERROR;
 		String mimeType = MIME_PLAINTEXT;
-		String message = "Invalid request";
 		
 //		System.out.println("http://localhost:1080/" + printPath(path) + ";\t Method=" + method);
 		
 		User user = DefaultUser;
 		String userKeyCookie = cookies.read(keyCookie);
-//		System.out.println("cookie:" + cookies.read(keyCookie));
 		if(userKeyCookie != null) {
 			user = UserDirectory.checkKey(userKeyCookie);
 			if(user == null) {
@@ -75,7 +69,15 @@ public class DataServer extends NanoHTTPD {
 				return newFixedLengthResponse(e.getStatus(), mimeType, e.getMessage());
 			}
 		}
-		
+		Connection conn;
+		Statement stmt;
+		try {
+			conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
+			stmt = conn.createStatement();
+		} catch (Exception e1) {
+			e1.printStackTrace();
+			return newFixedLengthResponse(status, mimeType, "Somthing went wrong with the SQL database");
+		}
 		if(method == Method.POST) {
 			if(path.length > 0) {
 				if(path[0].equals("login")) {
@@ -185,10 +187,15 @@ public class DataServer extends NanoHTTPD {
 						String id = path[1];
 						if(path[2].equals("save")) {
 							try {
-								Connection conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
-								Statement stmt = conn.createStatement();
-								ResultSet rset = stmt.executeQuery("select plot from sharePlots where user = \""+user.getName()+"\"");
+								ResultSet rset = stmt.executeQuery("select plot from sharePlots where user = \""+user.getName()+"\";");
 								while(rset.next()) {
+									if(postBody.containsKey("title")) {
+										stmt.executeUpdate("update plots set name = \"" + postBody.get("title").get(0) + "\" where id = \"" + id + "\";");
+										return newFixedLengthResponse(Response.Status.OK, mimeType, "Updated plot title");
+									} else if(postBody.containsKey("desc")) {
+										stmt.executeUpdate("update plots set desciption = \"" + postBody.get("desc").get(0) + "\" where id = \"" + id + "\";");
+										return newFixedLengthResponse(Response.Status.OK, mimeType, "Updated plot description");
+									}
 									String plot = rset.getString("plot");
 									if(plot.equals(id)) {
 										postData = postData.replace("\"", "\\\"");
@@ -202,6 +209,36 @@ public class DataServer extends NanoHTTPD {
 								
 							} catch (SQLException ex) {
 								ex.printStackTrace();
+								return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "SQL ERROR");
+							}
+						} else if(path[2].equals("share")) {
+							if(!user.checkPerm("plots.share")) {
+								return newFixedLengthResponse(Response.Status.UNAUTHORIZED, mimeType, "Invalid Permissions; Must have permesion \"plots.share\"");
+							}
+							try {
+								ResultSet rset = stmt.executeQuery("select * from sharePlots where plot = \""+id+"\" and user = \""+user.getName()+"\"");
+								if(!rset.next()) {
+									return newFixedLengthResponse(Response.Status.UNAUTHORIZED, mimeType, "You must be able to edit the plot to share it!");
+								}
+								if(!postBody.containsKey("user")) {
+									return newFixedLengthResponse(Response.Status.BAD_REQUEST, mimeType, "Missing body elements: {\"user\"}");
+								}
+								if(!postBody.containsKey("action")) {
+									return newFixedLengthResponse(Response.Status.BAD_REQUEST, mimeType, "Missing body elements: {\"action\"}");
+								}
+								//share it here;
+								if(postBody.get("action").get(0).equals("share")) {
+									rset = stmt.executeQuery("select * from sharePlots where plot = \"" + id+"\" and user = \"" + postBody.get("user").get(0) + "\"");
+									if(!rset.next()) {
+										stmt.execute("insert into sharePlots values (\"" + path[1] + "\", \"" + postBody.get("user").get(0) + "\")");
+									}
+									return newFixedLengthResponse(Response.Status.OK, mimeType, "Plot shared with " + postBody.get("user").get(0));
+								} else {
+									stmt.execute("delete from sharePlots where plot=\"" + path[1] + "\" and user=\"" + postBody.get("user").get(0) + "\"");
+									return newFixedLengthResponse(Response.Status.OK, mimeType, "Plot unshared with " + postBody.get("user").get(0));
+								}
+							} catch (Exception e) {
+								e.printStackTrace();
 								return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "SQL ERROR");
 							}
 						}
@@ -219,8 +256,6 @@ public class DataServer extends NanoHTTPD {
 							String name = postBody.get("name").get(0);
 							String desc = postBody.get("desc").get(0);
 							try {
-								Connection conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
-								Statement stmt = conn.createStatement();
 								String id = getSaltString(8);
 								boolean bad = true;
 								while(bad) {
@@ -330,8 +365,6 @@ public class DataServer extends NanoHTTPD {
 						if(path[1].equals("list")) {
 							try {
 								String rsp = "[";
-								Connection conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
-								Statement stmt = conn.createStatement();
 
 								ResultSet rset = stmt.executeQuery("select plot from sharePlots where user = \""+user.getName()+"\"");
 								
@@ -352,7 +385,7 @@ public class DataServer extends NanoHTTPD {
 									plots = "= "+plots;
 								}
 								
-								rset = stmt.executeQuery("select id, owner, name, desciption from plots where id "+plots+";");
+								rset = stmt.executeQuery("select id, owner, name, desciption from plots where id = " + plots + ";");
 								while(rset.next()) {
 									String id = rset.getString("id");
 									String owner = rset.getString("owner");
@@ -361,7 +394,7 @@ public class DataServer extends NanoHTTPD {
 									if(!rsp.equals("[")) {
 										rsp += ",";
 									}
-									rsp += "{\"id\":\""+id+"\",\"owner\":\""+owner+"\",\"name\":\""+name+"\",\"desc\":\""+desc+"\"}";
+									rsp += "{\"id\":\"" + id + "\",\"owner\":\"" + owner + "\",\"name\":\"" + name + "\",\"desc\":\"" + desc + "\"}";
 								}
 								rsp += "]";
 								return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, rsp);
@@ -376,25 +409,36 @@ public class DataServer extends NanoHTTPD {
 						}
 					} else if(path.length == 3) {
 						try {
-							Connection conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
-							Statement stmt = conn.createStatement();
 							String strSelect = "select * from plots where id = \"" + path[1] + "\";";
 							ResultSet rset = stmt.executeQuery(strSelect);
 							if(!rset.next()) {
 								return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_HTML, PageLoader.getDefaultPage("Plot Not Found"));
+							}
+							if(path[2].equals("getEditors")) {
+								rset.close();
+								rset = stmt.executeQuery("select user from sharePlots where plot = \"" + path[1] + "\";");
+								String users = "";
+								while(rset.next()) {
+									if(!users.equals("")) {
+										users += ", ";
+									}
+									users += rset.getString("user");
+								}
+								return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, users);
 							}
 							String id = rset.getString("id");
 							String owner = rset.getString("owner");
 							String desc = rset.getString("desciption");
 							String name = rset.getString("name");
 							String data = rset.getString("data");
-							String rsp = "{\"id\":\""+id+"\",\"owner\":\""+owner+"\",\"name\":\""+name+"\",\"desc\":\""+desc+"\"}";
+							String plot = "{\"id\":\"" + id + "\",\"owner\":\"" + owner + "\",\"name\":\"" + name + "\",\"desc\":\"" + desc + "\"}";
 							String page = "";
 							if(path[2].equals("edit")) {
-								rset = stmt.executeQuery("select * from sharePlots where plot = \""+id+"\" and user = \""+user.getName()+"\"");
+								rset.close();
+								rset = stmt.executeQuery("select * from sharePlots where plot = \"" + id + "\" and user = \"" + user.getName() + "\";");
 								if(!rset.next()) {
 									Response r = newFixedLengthResponse(Response.Status.TEMPORARY_REDIRECT, MIME_HTML, "");
-						            r.addHeader("Location", "/plot/"+path[1]+"/veiw");
+						            r.addHeader("Location", "/plot/" + path[1] + "/veiw");
 						            return r;
 								}
 								page = PageLoader.getPage("plotEditor");
@@ -403,7 +447,7 @@ public class DataServer extends NanoHTTPD {
 							} else {
 								return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_HTML, PageLoader.getPage("endOfTheWorld"));
 							}
-							page = page.replace("%PlotData%",rsp);
+							page = page.replace("%PlotData%",plot);
 							page = page.replace("%Data%", data);
 							return newFixedLengthResponse(Response.Status.OK, MIME_HTML, page);
 						} catch (SQLException ex) {
@@ -415,106 +459,9 @@ public class DataServer extends NanoHTTPD {
 			}
 			return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_HTML, PageLoader.getPage("endOfTheWorld"));
 		}
-		
-//		if(path[0].equals("test")) {
-//			if(path.length == 3) {
-//				if(data.hasSet(path[1])) {
-//					if(data.hasKey(path[1],path[2])) {
-//						message = "Value: " + data.getKey(path[1],path[2]);
-//						status = Response.Status.OK;
-//					} else {
-//						message = "No sutch key: \"" + path[2] + "\"";
-//						status = Response.Status.OK;
-//					}
-//				} else {
-//					message = "No sutch set: \"" + path[1] + "\"";
-//					status = Response.Status.OK;
-//				}
-//				return newFixedLengthResponse(status, mimeType, message);
-//			} else if(path.length == 1) {
-//				return newFixedLengthResponse(Response.Status.OK, mimeType, "Testing, 1 ... 2 ... 3 ...");
-//			} else {
-//				return newFixedLengthResponse(Response.Status.OK, mimeType, "Invalid number of path parameters");
-//			}
-//		} else if( path[0].equals("sql") ) {
-//			if(!user.checkPerm("sql")) {
-//				return newFixedLengthResponse(Response.Status.UNAUTHORIZED, mimeType, "Invalid Permessions");
-//			}
-//			if(path.length >= 2) {
-//				if(path[1].equals("select")) {
-//					message = "SQL Select Test: ";
-//					try {
-//						Connection conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
-//						Statement stmt = conn.createStatement();
-//						String strSelect = "select title, price, qty from books";
-//						message += "\nThe SQL statement is: " + strSelect + "\n";
-//						ResultSet rset = stmt.executeQuery(strSelect);
-//						message += "\nThe records selected are:";
-//						message += "\n+------------------------------+----------+----------+";
-//						message += "\n| Title                        | Price    | Qty      |";
-//						message += "\n+------------------------------+----------+----------+";
-//						int rowCount = 0;
-//						while(rset.next()) {
-//							String title = rset.getString("title");
-//							double price = rset.getDouble("price");
-//							int qty = rset.getInt("qty");
-//							message += "\n| " + padTo(title,28) + " | " + padTo(""+price,8) + " | " + padTo(""+qty,8) + " |";
-//							++rowCount;
-//						}
-//						message += "\n+------------------------------+----------+----------+";
-//						message += "\nTotal number of records = " + rowCount;
-//						status = Response.Status.OK;
-//					} catch (SQLException ex) {
-//						message = "ERROR";
-//						status = Response.Status.INTERNAL_ERROR;
-//						ex.printStackTrace();
-//					}
-//					return newFixedLengthResponse(status, mimeType, message);
-//				} else if(path[1].equals("update")) {
-//					message = "SQL Update Test";
-//					String price = null;
-//					String qty = null;
-//					String id = "1001";
-//					if(params.containsKey("price")) {
-//						price = params.get("price").get(0);
-//					}
-//					if(params.containsKey("qty")) {
-//						qty = params.get("qty").get(0);
-//					}
-//					if(params.containsKey("id")) {
-//						id = params.get("id").get(0);
-//					}
-//					try {
-//						Connection conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
-//						Statement stmt = conn.createStatement();
-//						String strUpdate = "update books set ";
-//						if(price != null) {
-//							strUpdate += "price = " + price;
-//							if(qty != null) {
-//								strUpdate += ", ";
-//							}
-//						}
-//						if(qty != null) {
-//							strUpdate += "qty = " + qty;
-//						}
-//						strUpdate += " where id = " + id;
-//						message += "\nThe SQL statement is: " + strUpdate;
-//						int countUpdated = stmt.executeUpdate(strUpdate);
-//						message += "\n" + countUpdated + " records affected.";
-//						
-//						status = Response.Status.OK;
-//					} catch (SQLException ex) {
-//						message = "ERROR";
-//						status = Response.Status.INTERNAL_ERROR;
-//						ex.printStackTrace();
-//					}
-//				}
-//			}
-//		}
-		
-//		return newFixedLengthResponse(status, mimeType, message);
 	}
 	
+	@SuppressWarnings("unused")
 	private String padTo(String input, int l) {
 		if(input.length() >= l) {
 			return input;
