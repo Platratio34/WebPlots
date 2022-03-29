@@ -385,7 +385,10 @@ public class DataServer extends NanoHTTPD {
 									plots = "= "+plots;
 								}
 								
-								rset = stmt.executeQuery("select id, owner, name, desciption from plots where id = " + plots + ";");
+								if(plots == "") {
+									return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "");
+								}
+								rset = stmt.executeQuery("select id, owner, name, desciption from plots where id " + plots + ";");
 								while(rset.next()) {
 									String id = rset.getString("id");
 									String owner = rset.getString("owner");
