@@ -11,7 +11,8 @@ function init(kick = false) {
         // loginLink.innerHTML = "Logout"
         // loginLink.href = "javascript:logout()"
         document.getElementById("userName").innerHTML = readCookie("user");
-        usrDrop.innerHTML = "<a href='/user/profile'>Profile</a>";
+        usrDrop.innerHTML = "<a href='/user/profile'>My Profile</a>";
+        usrDrop.innerHTML += "<a href='/plot'>My Plots</a>";
         usrDrop.innerHTML += "<a href='javascript:logout()'>Logout</a>";
         // usrDrop.innerHTML += "<a href='/test'>Test</a>";
     } else {
@@ -56,16 +57,21 @@ function updatePerms(str) {
 
 // sends an aysconcronus http get request
 function httpGetAsync(theUrl, callback) {
-  var xmlHttp = new XMLHttpRequest();
-  xmlHttp.onreadystatechange = function() {
-    if (xmlHttp.readyState == 4 && xmlHttp.status == 200) {
-      callback(xmlHttp.responseText);
-    } else if(xmlHttp.readyState == 4) {
-      console.log("HTTP GET response error; status:" + xmlHttp.status + "; res:'" + xmlHttp.responseText + "'");
+    httpGetAsync2(theUrl, function(res) {
+        if (res.status == 200) {
+            callback(res.responseText);
+          }
+    })
+}
+function httpGetAsync2(theUrl, callback) {
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.onreadystatechange = function() {
+        if (xmlHttp.readyState == 4) {
+            callback(xmlHttp);
+        }
     }
-  }
-  xmlHttp.open("GET", theUrl, true);
-  xmlHttp.send(null);
+    xmlHttp.open("GET", theUrl, true);
+    xmlHttp.send(null);
 }
 
 function getAlert(url) {
@@ -74,7 +80,7 @@ function getAlert(url) {
 
 // sends an aysconcronus http Post request, with type "application/x-www-form-urlencoded"
 function httpPostAsyncA(theUrl, body, callback) {
-  httpPostAsync(theUrl, "application/x-www-form-urlencoded", body, callback);
+    httpPostAsync(theUrl, "application/x-www-form-urlencoded", body, callback);
 }
 // sends an aysconcronus http Post request
 function httpPostAsync(theUrl, type, body, callback) {

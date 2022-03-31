@@ -17,6 +17,9 @@ import java.io.FileInputStream;
 public class DataServer extends NanoHTTPD {
 	
 	private static String sQLUrl = "jdbc:mysql://localhost:3306/webPlots?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC";
+	private static Connection conn;
+	private static Statement stmt;
+	
 	private static String sQLUser = "peter";
 	private static String sQLPass = "admin";
 	
@@ -24,12 +27,20 @@ public class DataServer extends NanoHTTPD {
 	
 	private static User DefaultUser = new User("Default","");
 	
+	
+	
 	public DataServer(String hostname, int port) {
 		super(hostname, port);
 	}
 	public DataServer() {
 		super("localhost", 80);
 		UserDirectory.updateUsers();
+		try {
+			conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
+			stmt = conn.createStatement();
+		} catch (Exception e1) {
+			e1.printStackTrace();
+		}
 	}
 	
 	@Override
@@ -69,14 +80,14 @@ public class DataServer extends NanoHTTPD {
 				return newFixedLengthResponse(e.getStatus(), mimeType, e.getMessage());
 			}
 		}
-		Connection conn;
-		Statement stmt;
-		try {
-			conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
-			stmt = conn.createStatement();
-		} catch (Exception e1) {
-			e1.printStackTrace();
-			return newFixedLengthResponse(status, mimeType, "Somthing went wrong with the SQL database");
+		if(conn == null) {
+			try {
+				conn = DriverManager.getConnection(sQLUrl, sQLUser, sQLPass);
+				stmt = conn.createStatement();
+			} catch (Exception e1) {
+				e1.printStackTrace();
+				return newFixedLengthResponse(status, mimeType, "Somthing went wrong with the SQL database");
+			}
 		}
 		if(method == Method.POST) {
 			if(path.length > 0) {
@@ -199,10 +210,8 @@ public class DataServer extends NanoHTTPD {
 									String plot = rset.getString("plot");
 									if(plot.equals(id)) {
 										postData = postData.replace("\"", "\\\"");
-										String strSelect = "update plots set data = \"" + postData + "\" where id = \"" + id + "\";";
-										/*ResultSet rset = */stmt.execute(strSelect);
-//										System.out.println(rset);
-										return newFixedLengthResponse(Response.Status.OK, mimeType, "Saved plot");
+										stmt.execute("update plots set data = \"" + postData + "\", dataTime = " + System.currentTimeMillis() + " where id = \"" + id + "\";");
+										return newFixedLengthResponse(Response.Status.OK, mimeType, ""+System.currentTimeMillis());
 									}
 								}
 								return newFixedLengthResponse(Response.Status.FORBIDDEN, mimeType, "You can not save that plot");
@@ -216,7 +225,7 @@ public class DataServer extends NanoHTTPD {
 								return newFixedLengthResponse(Response.Status.UNAUTHORIZED, mimeType, "Invalid Permissions; Must have permesion \"plots.share\"");
 							}
 							try {
-								ResultSet rset = stmt.executeQuery("select * from sharePlots where plot = \""+id+"\" and user = \""+user.getName()+"\"");
+								ResultSet rset = stmt.executeQuery("select * from sharePlots where plot = \""+id+"\" and user = \""+user.getName()+"\";");
 								if(!rset.next()) {
 									return newFixedLengthResponse(Response.Status.UNAUTHORIZED, mimeType, "You must be able to edit the plot to share it!");
 								}
@@ -338,8 +347,9 @@ public class DataServer extends NanoHTTPD {
 									System.out.println(params);
 								}
 							}
+							return newFixedLengthResponse(Response.Status.OK, MIME_HTML, PageLoader.getPage(printPath(path)));
 						}
-						return newFixedLengthResponse(Response.Status.OK, MIME_HTML, PageLoader.getPage(printPath(path)));
+						return newFixedLengthResponse(Response.Status.OK, MIME_HTML, PageLoader.getPage("admin/admin"));
 					} else {
 						return newFixedLengthResponse(Response.Status.UNAUTHORIZED, MIME_HTML, PageLoader.getDefaultPage("Invalid Permissions; Must have permesion \"admin\""));
 					}
@@ -360,7 +370,7 @@ public class DataServer extends NanoHTTPD {
 						return newFixedLengthResponse(Response.Status.UNAUTHORIZED, MIME_HTML, PageLoader.getDefaultPage("Invalid Permissions; Must have permesion \"plots\""));
 					}
 					if(path.length == 1) {
-						return newFixedLengthResponse(Response.Status.OK, MIME_HTML, PageLoader.getPage("plot"));
+						return newFixedLengthResponse(Response.Status.OK, MIME_HTML, PageLoader.getPage("plot/plot"));
 					} else if(path.length == 2) {
 						if(path[1].equals("list")) {
 							try {
@@ -417,6 +427,7 @@ public class DataServer extends NanoHTTPD {
 							if(!rset.next()) {
 								return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_HTML, PageLoader.getDefaultPage("Plot Not Found"));
 							}
+							
 							if(path[2].equals("getEditors")) {
 								rset.close();
 								rset = stmt.executeQuery("select user from sharePlots where plot = \"" + path[1] + "\";");
@@ -429,12 +440,27 @@ public class DataServer extends NanoHTTPD {
 								}
 								return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, users);
 							}
+							
 							String id = rset.getString("id");
 							String owner = rset.getString("owner");
 							String desc = rset.getString("desciption");
 							String name = rset.getString("name");
 							String data = rset.getString("data");
+							data = data.replace("data=", "");
+							long dataTime = rset.getLong("dataTime");
 							String plot = "{\"id\":\"" + id + "\",\"owner\":\"" + owner + "\",\"name\":\"" + name + "\",\"desc\":\"" + desc + "\"}";
+							
+
+							if(path[2].equals("load")) {
+								if(params.containsKey("time")) {
+									long t = Long.parseLong(params.get("time").get(0));
+									if(t >= dataTime) {
+										return newFixedLengthResponse(Response.Status.NO_CONTENT, MIME_PLAINTEXT, "Data up to date");
+									}
+								}
+								return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "data="+data+"&dataTime="+dataTime);
+							}
+							
 							String page = "";
 							if(path[2].equals("edit")) {
 								rset.close();
@@ -444,14 +470,15 @@ public class DataServer extends NanoHTTPD {
 						            r.addHeader("Location", "/plot/" + path[1] + "/veiw");
 						            return r;
 								}
-								page = PageLoader.getPage("plotEditor");
+								page = PageLoader.getPage("plot/plotEditor");
 							} else if(path[2].equals("veiw")) {
-								page = PageLoader.getPage("plotVeiwer");
+								page = PageLoader.getPage("plot/plotVeiwer");
 							} else {
 								return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_HTML, PageLoader.getPage("endOfTheWorld"));
 							}
 							page = page.replace("%PlotData%",plot);
 							page = page.replace("%Data%", data);
+							page = page.replace("%DataTime%", ""+dataTime);
 							return newFixedLengthResponse(Response.Status.OK, MIME_HTML, page);
 						} catch (SQLException ex) {
 							ex.printStackTrace();

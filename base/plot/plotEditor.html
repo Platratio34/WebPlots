@@ -19,9 +19,9 @@
 			<h1>Peter Light Ploter</h1>
 			<table class="navTable">
 				<tr>
-					<td><a class="navLink" href="/home">Home</a></td>
-					<td><a class="navLink" href="javascript:leave()">Plots</td>
-					<td data-perm="admin" style="display:none"><a class="navLink" href="/admin">Admin Dashboard</a></td>
+					<td><a class="navLink" href="javascript:leave('/home')">Home</a></td>
+					<td><a class="navLink" href="javascript:leave('/plot')">Plots</td>
+					<td data-perm="admin" style="display:none"><a class="navLink" href="javascript:leave('/admin')">Admin Dashboard</a></td>
 				</tr>
 			</table>
 		</div>
@@ -51,6 +51,7 @@
 					<td>
 						<div id="debug"></div><br>
 						<button onclick="savePlot()">Save Plot</button>
+						Continuous Save<input type="checkbox" id="contSave"></input>
 
 						<div id="selectedParms" style="display:none">
 							<button id="addDMXButton" onClick="addDMX()" style="display:none">Add DMX</button>
@@ -85,6 +86,7 @@
 	<script>
 		var plot = %PlotData%;
 		var data = %Data%;
+		var dataTime = %DataTime%;
 		var data2 = {
 			size:[50,50],
 			lights: [
@@ -121,6 +123,9 @@
 		var scaleF = 16;
 		var scaleH = scaleF/2
 
+		const mtsl = 20;
+		var tsl = mtsl;
+
 		var debugT;
 
 		var selected;
@@ -136,11 +141,14 @@
 
 		var showPlot = true;
 
+		var cS;
+
 		function initL() {
 			// data = data2;
 			// plotWidth = data.size[0];
 			// plotHeight = data.size[1];
 			debugT = document.getElementById("debug");
+			cS = document.getElementById("contSave");
 			log2("Loaded");
 			document.getElementById("edit.title").value = plot.name;
 			document.getElementById("edit.desc").value = plot.desc;
@@ -162,6 +170,68 @@
 			};
 
 			sketch.draw = () => {
+				if(tsl == 0) {
+					tsl = mtsl;
+					if(cS.checked && changed) {
+						savePlot();
+					}
+					httpGetAsync2("load?time="+dataTime, function(res) {
+						if(res.status == 200) {
+							console.log("loading new");
+							let tSel = -1;
+							let tB = true;
+							if(selected != undefined) {
+								for(i = 0; i < data.lights.length; i++) {
+									if(data.lights[i] == selected) {
+										tB = false;
+										tSel = i;
+									}
+								}
+								if(tB) {
+									for(i = 0; i < data.bars.length; i++) {
+										if(data.bars[i] == selected) {
+											tSel = i;
+										}
+									}
+								}
+							}
+
+							let p = res.responseText.split("&");
+							// console.log(p[0])
+							for(i = 0 ; i < p.length; i++) {
+								let kv = p[i].split("=");
+								if(kv.length >= 2) {
+									if(kv[0] == "data") {
+										data = JSON.parse(kv[1]);
+									} else if(kv[0] == "dataTime") {
+										dataTime = parseInt(kv[1]);
+									}
+								}
+							}
+
+							if(selected != undefined) {
+								if(tB) {
+									if(tSel < data.bars.length) {
+										selectObj(data.bars[tSel]);
+									} else {
+										unselect();
+										log2("bar deleated");
+									}
+								} else {
+									if(tSel < data.lights.length) {
+										selectObj(data.lights[tSel]);
+									} else {
+										unselect();
+										log2("light deleated");
+									}
+								}
+							}
+							tsl = mtsl;
+						}
+					});
+				} else {
+					tsl--;
+				}
 
 				if(sketch.mouseIsPressed) {
 					let mouseX = sketch.mouseX;
@@ -211,13 +281,15 @@
 										}
 									}
 								}
-								for(var i = 0; i < data.bars.length; i++) {
-									var bar = data.bars[i];
-									var mPos = mouseOnGrid();
-									if(mPos[0] == bar.pos[0] && mPos[1] == bar.pos[1]) {
-										miss = false;
-										if(selected != bar) {
-											selectObj(bar);
+								if(miss) {
+									for(var i = 0; i < data.bars.length; i++) {
+										var bar = data.bars[i];
+										var mPos = mouseOnGrid();
+										if(mPos[0] == bar.pos[0] && mPos[1] == bar.pos[1]) {
+											miss = false;
+											if(selected != bar) {
+												selectObj(bar);
+											}
 										}
 									}
 								}
@@ -244,7 +316,7 @@
 							}
 						}
 					} else if(sketch.keyIsDown(46)) {
-						if(selected) {
+						if(selected != undefined) {
 							if(selected.type == "bar") {
 								for(i = 0; i < data.bars.length; i++) {
 									if(selected == data.bars[i]) {
@@ -260,6 +332,7 @@
 									changed = true;
 								}
 							}
+							unselect();
 						}
 					}
 				}
@@ -488,7 +561,7 @@
 							sketch.rect(((i-1)*3)+16, (u-1)*15, 3, 10);
 							if(adr+1 < dmxPatch.length) {
 								if(dmxPatch[adr+1]) {
-									if(dmxPatch[adr].light != dmxPatch[adr+1].light && dmxPatch[adr].light != undefined) {
+									if(dmxPatch[adr].light != dmxPatch[adr+1].light && dmxPatch[adr].light != undefined && dmxPatch[adr+1].light != undefined) {
 										if(dmxPatch[adr].light.type == dmxPatch[adr+1].light.type) {
 											let l = dmxPatch[adr].light;
 											if(l.type == "dim") {
@@ -516,6 +589,9 @@
 			unselect();
 			document.getElementById("createObjs").style.display = "none";
 			document.getElementById("selectedParms").style.display = "block";
+			if(obj == undefined) {
+				return;
+			}
 			selected = obj;
 			selected.selected = true;
 			if(selected.dmx) {
@@ -568,10 +644,13 @@
 			if(selected) {
 				selected.selected = false;
 			}
-			httpPostAsync2("save", "", "data="+JSON.stringify(data), function(res){
+			httpPostAsync2("save", "", JSON.stringify(data), function(res){
 				if(res.status != 200) {
 					log2(res.responseText);
 					changed = false;
+				} else {
+					changed = false;
+					dataTime = parseInt(res.responseText);
 				}
 			});
 			if(selected) {
@@ -642,7 +721,7 @@
 			}
 		}
 
-		function leave() {
+		function leave(dest) {
 			if(changed) {
 				if(window.confirm("Are you sure you want to Quit?")) {
 					if(window.confirm("Save before Quiting?")) {
@@ -652,7 +731,7 @@
 					return;
 				}
 			}
-			window.location.href = "/plot";
+			window.location.href = dest;
 		}
 
 		function toDeg(angle) {

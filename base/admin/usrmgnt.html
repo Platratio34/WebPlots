@@ -47,6 +47,7 @@
 					</td>
 					<td>
 						<div id="newUser" style="display:none">
+							<br>
 							New User:<br>
 							Username: <input type="text" id="newUser.name" placeholder="Username"></input><br>
 							Password: <input type="password" id="newUser.pass" placeholder="Password" autocomplete="new-password"></input><br>
@@ -54,18 +55,22 @@
 							<button onclick="newUser()">Create</button>
 						</div>
 						<div id="changePerms" style="display:none">
+							<br>
 							Add Permission: <input type="text" id="changePerms.add" placeholder="Permission"></input> <button onclick="changePerm('add')">Add</button><br>
 							<br>
 							Remove Permission: <input type="text" id="changePerms.remove" placeholder="Permission"></input> <button onclick="changePerm('remove')">Remove</button><br>
 							<br>
 							Current Permissions:<br>
-							<div id="changePerms.cPerms"></div><br>
+							<div id="changePerms.cPerms" class="borderd" style="width:150px; padding:5px"></div><br>
 						</div>
 						<div id="setPass" style="display:none">
+							<br>
+							The new password must contain at least 10 charecters, at least 1 special charecter, at least 1 letter, and may not contain `^'&amp"*()[]{}|,\.&lsaquo;&rsaquo;/.<br>
+							<br>
 							New Password: <input id="setPass.new1" type="password" placeholder="Type the password" autocomplete="new-password" onchange="checkNewPass();validatePass()"></input>
-							<output id="setPass.invalid" style="display:none; color:red">Must contain at least 10 charecters, at least 1 special charecter, at least 1 letter, and may not contain `^'&amp"*()[]{}|,\.&lsaquo;&rsaquo;/</output><br>
+							<output id="setPass.invalid" style="display:none;" class="errorText">Must contain at least 10 charecters, at least 1 special charecter, at least 1 letter, and may not contain `^'&amp"*()[]{}|,\.&lsaquo;&rsaquo;/</output><br>
 							New Password: <input id="setPass.new2" type="password" placeholder="Type the password again" autocomplete="new-password" oninput="checkNewPass()"></input>
-							<output id="setPass.new2.bad" style="display:none; color:red">The passwords must match</output><br>
+							<output id="setPass.new2.bad" style="display:none;" class="errorText">The passwords must match</output><br>
 							<button onclick="setPass()">Set Password</button>
 						</div>
 					</td>
@@ -177,7 +182,13 @@
 
 			function changePerm(action) {
 				var perm = document.getElementById("changePerms."+action).value
-				httpPostAsync("/admin/user", "" , "action="+action+"Perm&perm="+perm+"&user="+cUser.name, function(res){alert(res);initL()})
+				httpPostAsync2("/admin/user", "" , "action="+action+"Perm&perm="+perm+"&user="+cUser.name, function(res){
+					if(res.status == 200) {
+						initL();
+					} else {
+						alert(res.responseText);
+					}
+				});
 			}
 
 			function checkNewPass() {
