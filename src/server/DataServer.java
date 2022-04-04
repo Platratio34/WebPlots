@@ -1,18 +1,25 @@
 package server;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.sql.*;
+
+import dataManagment.JsonObj;
 import nanoHTTPD.NanoHTTPD;
+import reporting.PatchReport;
 import userManagment.LoginKey;
 import userManagment.User;
 import userManagment.UserDirectory;
-import java.io.File;
-import java.io.FileInputStream;
 
 public class DataServer extends NanoHTTPD {
 	
@@ -443,14 +450,23 @@ public class DataServer extends NanoHTTPD {
 							
 //							String id = rset.getString("id");
 							String id = path[1];
-							String owner = rset.getString("owner");
-							String desc = rset.getString("desciption");
-							String name = rset.getString("name");
-							String data = rset.getString("data");
-							data = data.replace("data=", "");
-							long dataTime = rset.getLong("dataTime");
+							String owner;
+							String desc;
+							String name;
+							String data;
+							long dataTime;
+							try {
+								owner = rset.getString("owner");
+								desc = rset.getString("desciption");
+								name = rset.getString("name");
+								data = rset.getString("data");
+								data = data.replace("data=", "");
+								dataTime = rset.getLong("dataTime");
+							} catch (Exception e) {
+								e.printStackTrace();
+								return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_HTML, PageLoader.getDefaultPage("Somthing went wrong getting the plot data"));
+							}
 							String plot = "{\"id\":\"" + id + "\",\"owner\":\"" + owner + "\",\"name\":\"" + name + "\",\"desc\":\"" + desc + "\"}";
-							
 
 							if(path[2].equals("load")) {
 								if(params.containsKey("time")) {
@@ -460,6 +476,17 @@ public class DataServer extends NanoHTTPD {
 									}
 								}
 								return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "data="+data+"&dataTime="+dataTime);
+							} else if(path[2].equals("report")) {
+								if(params.containsKey("type")) {
+									JsonObj obj = JsonObj.parse(data);
+//									System.out.println(obj);
+									if(params.get("type").get(0).equals("patch")) {
+										PatchReport rp = new PatchReport(obj, name);
+										return newFixedLengthResponse(Response.Status.OK, MIME_HTML, rp.run());
+									}
+									return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_HTML, PageLoader.getDefaultPage("Invalid type"));
+								}
+								return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_HTML, PageLoader.getDefaultPage("No type specified"));
 							}
 							
 							String page = "";

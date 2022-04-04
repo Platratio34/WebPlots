@@ -59,7 +59,7 @@ public class PageLoader {
 		return page;
 	}
 	
-	private static String loadFile(String path) throws FileNotFoundException {
+	public static String loadFile(String path) throws FileNotFoundException {
 		String file = "";
 		Scanner scan = new Scanner(new File(path));
 		while(scan.hasNextLine()) {

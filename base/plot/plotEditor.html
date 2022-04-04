@@ -57,6 +57,7 @@
 							<button id="addDMXButton" onClick="addDMX()" style="display:none">Add DMX</button>
 							<div id="DMX" style="display:none">
 								<h3>DMX</h3>
+								Channel: <input id="dmx.ch" type="number"></input>
 								DMX Mode: <input id="dmx.mode" type="number"></input><br>
 								DMX Addr: <input id="dmx.adr" type="text"></input>
 								<button onclick="patch()">Patch</button>
@@ -620,6 +621,10 @@
 			if(selected.dmx) {
 				document.getElementById("addDMXButton").style.display = "none";
 				document.getElementById("DMX").style.display = "block";
+				if(!selected.dmx.ch) {
+					selected.dmx.ch = 1;
+				}
+				document.getElementById("dmx.ch").value = selected.dmx.ch;
 				document.getElementById("dmx.mode").value = selected.dmx.mode;
 				document.getElementById("dmx.adr").value = selected.dmx.uni+"/"+selected.dmx.adr;
 			} else if(selected.type != "bar") {
@@ -719,6 +724,7 @@
 			if(selected) {
 				if(selected.dmx) {
 					selected.dmx.mode = parseInt(document.getElementById('dmx.mode').value);
+					selected.dmx.ch = parseInt(document.getElementById('dmx.ch').value);
 					let adr = document.getElementById('dmx.adr').value.split('/');
 					if(adr.length==1) {
 						let adr2 = parseInt(adr[0]);
@@ -739,9 +745,22 @@
 						selected.dmx.uni=parseInt(adr[0]);
 						selected.dmx.adr=parseInt(adr[1]);
 					}
+					if(selected.dmx.ch < 1) {
+						selected.dmx.ch = 0;
+					}
+					if(selected.dmx.ch > 9999) {
+						selected.dmx.ch = 9999;
+					}
+					if(selected.dmx.mode < 1) {
+						selected.dmx.mode = 0;
+					}
+					if(selected.dmx.mode > 512) {
+						selected.dmx.mode = 512;
+					}
 					if(selected.dmx.adr > 513-selected.dmx.mode) {
 						selected.dmx.adr = 513-selected.dmx.mode;
 					}
+					document.getElementById("dmx.ch").value = selected.dmx.ch;
 					document.getElementById("dmx.mode").value = selected.dmx.mode;
 					document.getElementById("dmx.adr").value = selected.dmx.uni+"/"+selected.dmx.adr;
 				}
