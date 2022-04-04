@@ -441,7 +441,8 @@ public class DataServer extends NanoHTTPD {
 								return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, users);
 							}
 							
-							String id = rset.getString("id");
+//							String id = rset.getString("id");
+							String id = path[1];
 							String owner = rset.getString("owner");
 							String desc = rset.getString("desciption");
 							String name = rset.getString("name");

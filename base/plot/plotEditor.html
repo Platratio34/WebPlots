@@ -80,6 +80,23 @@
 		</table>
 		<h2>DMX Overveiw</h2>
 		<div id="dmxCanvas"></div>
+		<h2>Help</h2>
+		Select an object by clicking on it.<br>
+		To move an object, select it, then hold SHIFT and click on the location you want to move it to.<br>
+		To rotate an object, select it, then hold CONTROL and click on where you want it to point at.<br>
+		To delete an object, select it and press DELETE.<br>
+		To copy an object to the clipboard, select it and press CONTROL-C.<br>
+		To paste an object from the clipboard, pres CONTROL-V.<br>
+		To place an the pasted object, click on the locaion you want it to be.<br>
+
+		<h3>DMX Help</h3>
+		To add an light to the DMX patch, select the light and press the [Add DMX] button to the right of the plot.<br>
+		If an object with DMX data is selected, you can set the address and number of addresses used using the input boxes to the right of the plot.<br>
+		On the DMX Overview display, lights are displayed by the colored bolocks.<br>
+		If an area is RED then there is a conflict in the patch, the area turns ORANGE if it is selected.<br>
+		The YELLOW and ORANGE area is the currently selected light.<br>
+		The thin gray lines seperate diffrent fixtures of the same type.<br>
+		Below the display is a color key for the type of light.<br>
 
 	</body>
 
@@ -156,6 +173,12 @@
 			document.title = plot.name + " | Peter Light Ploter";
 			httpGetAsync("getEditors", function(res) {
 				document.getElementById("share.usrs").value = res;
+			});
+			window.addEventListener('beforeunload', function (e) {
+    			if (changed) {
+        			e.preventDefault();
+        			e.returnValue = '';
+    			}
 			});
 		}
 
@@ -716,6 +739,11 @@
 						selected.dmx.uni=parseInt(adr[0]);
 						selected.dmx.adr=parseInt(adr[1]);
 					}
+					if(selected.dmx.adr > 513-selected.dmx.mode) {
+						selected.dmx.adr = 513-selected.dmx.mode;
+					}
+					document.getElementById("dmx.mode").value = selected.dmx.mode;
+					document.getElementById("dmx.adr").value = selected.dmx.uni+"/"+selected.dmx.adr;
 				}
 				changed = true;
 			}
