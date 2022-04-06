@@ -481,7 +481,7 @@ public class DataServer extends NanoHTTPD {
 								return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "data="+data+"&dataTime="+dataTime);
 							} else if(path[2].equals("report")) {
 								if(params.containsKey("type")) {
-									JsonObj obj = JsonObj.parse(data);
+									JsonObj obj = JsonObj.parseD(data);
 //									System.out.println(obj);
 									String type = params.get("type").get(0);
 									Report rp = null;
