@@ -16,7 +16,10 @@ import java.util.Random;
 
 import dataManagment.JsonObj;
 import nanoHTTPD.NanoHTTPD;
+import reporting.CombinedReport;
+import reporting.EquipmentReport;
 import reporting.PatchReport;
+import reporting.Report;
 import userManagment.LoginKey;
 import userManagment.User;
 import userManagment.UserDirectory;
@@ -464,7 +467,7 @@ public class DataServer extends NanoHTTPD {
 								dataTime = rset.getLong("dataTime");
 							} catch (Exception e) {
 								e.printStackTrace();
-								return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_HTML, PageLoader.getDefaultPage("Somthing went wrong getting the plot data"));
+								return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_HTML, PageLoader.getDefaultPage("Somthing went wrong getting the plot data <a href=\".\">Reload</a>"));
 							}
 							String plot = "{\"id\":\"" + id + "\",\"owner\":\"" + owner + "\",\"name\":\"" + name + "\",\"desc\":\"" + desc + "\"}";
 
@@ -480,8 +483,16 @@ public class DataServer extends NanoHTTPD {
 								if(params.containsKey("type")) {
 									JsonObj obj = JsonObj.parse(data);
 //									System.out.println(obj);
-									if(params.get("type").get(0).equals("patch")) {
-										PatchReport rp = new PatchReport(obj, name);
+									String type = params.get("type").get(0);
+									Report rp = null;
+									if(type.equals("patch")) {
+										rp = new PatchReport(obj, name);
+									} else if(type.equals("equipment")) {
+										rp = new EquipmentReport(obj, name);
+									} else if(type.equals("combined")) {
+										rp = new CombinedReport(obj, name);
+									}
+									if(rp != null) {
 										return newFixedLengthResponse(Response.Status.OK, MIME_HTML, rp.run());
 									}
 									return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_HTML, PageLoader.getDefaultPage("Invalid type"));

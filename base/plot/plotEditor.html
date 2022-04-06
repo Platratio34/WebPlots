@@ -57,7 +57,7 @@
 							<button id="addDMXButton" onClick="addDMX()" style="display:none">Add DMX</button>
 							<div id="DMX" style="display:none">
 								<h3>DMX</h3>
-								Channel: <input id="dmx.ch" type="number"></input>
+								Channel: <input id="dmx.ch" type="number"></input><br>
 								DMX Mode: <input id="dmx.mode" type="number"></input><br>
 								DMX Addr: <input id="dmx.adr" type="text"></input>
 								<button onclick="patch()">Patch</button>
@@ -73,6 +73,7 @@
 							<button onclick="clipboard=createObj('cs-spot'); showClipboard=true">CS Spot</button>
 							<button onclick="clipboard=createObj('cs-spot-db'); showClipboard=true">CS Spot DB</button>
 							<button onclick="clipboard=createObj('ap-150'); showClipboard=true">AP-150</button>
+							<button onclick="clipboard=createObj('mav-force-s-prof'); showClipboard=true">Mavrick Force S Profile</button>
 							<button onclick="clipboard=createObj('bar'); showClipboard=true">Bar</button>
 						</div>
 					</td>
@@ -81,6 +82,12 @@
 		</table>
 		<h2>DMX Overveiw</h2>
 		<div id="dmxCanvas"></div>
+
+		<h2>Reports</h2>
+		<a class="navLink" href="report?type=patch" target="_blank">Patch Report</a> | <a class="navLink reportDownload" href="report?type=patch" download="-patch">Download</a><br>
+		<a class="navLink" href="report?type=equipment" target="_blank">Equipment List</a> | <a class="navLink reportDownload" href="report?type=equipment" download="-equip">Download</a><br>
+		<a class="navLink" href="report?type=combined" target="_blank">Combined Report</a> | <a class="navLink reportDownload" href="report?type=combined" download="-report">Download</a>
+
 		<h2>Help</h2>
 		Select an object by clicking on it.<br>
 		To move an object, select it, then hold SHIFT and click on the location you want to move it to.<br>
@@ -98,42 +105,12 @@
 		The YELLOW and ORANGE area is the currently selected light.<br>
 		The thin gray lines seperate diffrent fixtures of the same type.<br>
 		Below the display is a color key for the type of light.<br>
-
 	</body>
 
 	<script>
 		var plot = %PlotData%;
 		var data = %Data%;
 		var dataTime = %DataTime%;
-		var data2 = {
-			size:[50,50],
-			lights: [
-				{
-					type:"dim",
-					pos:[10,10],
-					dir:0,
-					selected:false
-				},
-				{
-					type:"cs-spot",
-					pos:[25,10],
-					dir:230,
-					selected:false
-				},
-				{
-					type:"ap-150",
-					pos:[10,20],
-					dir:0,
-					selected:false
-				},
-				{
-					type:"cs-spot-db",
-					pos:[25,20],
-					dir:-230,
-					selected:false
-				}
-			]
-		}
 		var canvas;
 		var ctx;
 		var plotWidth = data.size[0];
@@ -162,9 +139,6 @@
 		var cS;
 
 		function initL() {
-			// data = data2;
-			// plotWidth = data.size[0];
-			// plotHeight = data.size[1];
 			debugT = document.getElementById("debug");
 			cS = document.getElementById("contSave");
 			log2("Loaded");
@@ -181,6 +155,13 @@
         			e.returnValue = '';
     			}
 			});
+
+		    rpDl = document.querySelectorAll('.reportDownload');
+		    for(i = 0; i < rpDl.length; i++) {
+				str = plot.name;
+    			key=key.replace(" ","_");
+				rpDl[i].download = str + rpDl[i].download;
+			}
 		}
 
 		let main = new p5( ( sketch ) => {
@@ -401,6 +382,7 @@
 						if(selected.dmx) {
 							sketch.text("DMX mode: "+selected.dmx.mode+" ch", 5, 64);
 							sketch.text("DMX adr: "+selected.dmx.uni+"/"+selected.dmx.adr, 5, 80);
+							sketch.text("Channel: "+selected.dmx.ch, 5, 96);
 						}
 					}
 				}
@@ -464,6 +446,24 @@
 					sketch.vertex(4, 5);
 					sketch.vertex(4, -20);
 					sketch.endShape(sketch.CLOSE);
+				} else if(obj.type == "mav-force-s-prof") {
+					if(obj.selected) {
+						let c = sketch.color("#ee0");
+						c.setAlpha(op);
+						sketch.stroke(c);
+					} else {
+						let c = sketch.color("#888");
+						c.setAlpha(op);
+						sketch.stroke(c);
+					}
+					let c = sketch.color("#333");
+					c.setAlpha(op);
+					sketch.fill(c);
+					sketch.rect(-7, -7, 14, 14);
+					let c2 = sketch.color("#3a3");
+					c2.setAlpha(op);
+					sketch.fill(c2);
+					sketch.rect(-3, -12, 6, 15);
 				} else if(obj.type == "bar") {
 					if(obj.selected) {
 						let c = sketch.color("#ee0");
@@ -579,6 +579,8 @@
 										sketch.fill("#886");
 									} else if(l.type == "cs-spot-db") {
 										sketch.fill("#668");
+									} else if(l.type == "mav-force-s-prof") {
+										sketch.fill("#686");
 									}
 								}
 							}
@@ -596,6 +598,8 @@
 												sketch.fill("#664");
 											} else if(l.type == "cs-spot-db") {
 												sketch.fill("#446");
+											} else if(l.type == "mav-force-s-prof") {
+												sketch.fill("#464");
 											}
 											sketch.rect(((i-1)*3)+16+2, (u-1)*15, 1, 10);
 										}
@@ -703,7 +707,8 @@
 					selected.dmx = {
 						mode:1,
 						uni:1,
-						adr:1
+						adr:1,
+						ch:1
 					}
 					if(selected.type == "cs-spot" || selected.type == "cs-spot-db") {
 						selected.dmx.mode = 5;
@@ -711,10 +716,14 @@
 					if(selected.type == "ap-150") {
 						selected.dmx.mode = 15;
 					}
+					if(selected.type == "mav-force-s-prof") {
+						selected.dmx.mode = 31;
+					}
 					document.getElementById("addDMXButton").style.display = "none";
 					document.getElementById("DMX").style.display = "block";
 					document.getElementById("dmx.mode").value = selected.dmx.mode;
 					document.getElementById("dmx.adr").value = selected.dmx.uni+"/"+selected.dmx.adr;
+					document.getElementById("dmx.ch").value = selected.dmx.ch;
 				}
 				changed = true;
 			}

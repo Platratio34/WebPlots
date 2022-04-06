@@ -82,6 +82,8 @@ public class ReportLight implements Comparable<ReportLight> {
 				return "AP-150";
 			case "dim":
 				return "Dimmer";
+			case "mav-force-s-prof":
+				return "Mavrick Force S Profile";
 		}
 		return "INVALID TYPE";
 	}

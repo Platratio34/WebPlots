@@ -1,29 +1,14 @@
 package reporting;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Collections;
-
 import dataManagment.JsonObj;
 import server.PageLoader;
 
-public class PatchReport {
-	
-	public ArrayList<ReportLight> lights;
-	
-	public String name;
+public class PatchReport extends Report {
 	
 	public PatchReport(JsonObj obj, String name) {
-		this.name = name;
-		lights = new ArrayList<ReportLight>();
-		if(obj.hasKey("lights")) {
-			JsonObj[] objs = obj.getKey("lights").getArr();
-			for(int i = 0; i < objs.length; i++) {
-				lights.add(new ReportLight(objs[i]));
-			}
-			Collections.sort(lights);
-		}
+		super(obj, name);
 	}
 	
 	public String run() {
@@ -31,7 +16,7 @@ public class PatchReport {
 		try {
 			String rp = PageLoader.loadFile("reports/patchReport.html");
 			rp = rp.replace("%PlotName%", name);
-			String tableInner = "<tr><th>Type</th><th>Address</th><th>Mode</th></tr>";
+			String tableInner = "<tr><th>Channel</th><th>Type</th><th>Address</th><th>Mode</th></tr>";
 			ArrayList<Integer> uUsed = new ArrayList<Integer>();
 			String uniUsed = "";
 			for(int i = 0; i < lights.size(); i++) {
@@ -44,7 +29,7 @@ public class PatchReport {
 						}
 						uniUsed += "" + l.dmxUni;
 					}
-					tableInner += "<tr><td>" + l.getTypeF() + "</td><td>" + l.getAdrF() + "</td><td>" + l.dmxMode + "</td></tr>";
+					tableInner += "<tr><td>" + l.ch + "</td><td>" + l.getTypeF() + "</td><td>" + l.getAdrF() + "</td><td>" + l.dmxMode + "</td></tr>";
 				}
 			}
 			rp = rp.replace("%TableInner%", tableInner);
