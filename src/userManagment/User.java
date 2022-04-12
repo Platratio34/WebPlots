@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TimeZone;
 
+import dataManagment.JsonObj;
 import util.Hasher;
 
 public class User {
@@ -91,12 +92,11 @@ public class User {
 		return str;
 	}
 	public String getPermsJSON() {
-		String str = "[";
+		JsonObj obj = new JsonObj();
 		for(int i = 0; i < perms.size(); i++) {
-			if(i>0) str += ",";
-			str += "\""+perms.get(i)+"\"";
+			obj.addArray(perms.get(i));
 		}
-		return str + "]";
+		return obj.toString();
 	}
 	
 //	public void setPerm(String perm, boolean a) {

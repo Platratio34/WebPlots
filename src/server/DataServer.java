@@ -467,7 +467,7 @@ public class DataServer extends NanoHTTPD {
 								dataTime = rset.getLong("dataTime");
 							} catch (Exception e) {
 								e.printStackTrace();
-								return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_HTML, PageLoader.getDefaultPage("Somthing went wrong getting the plot data <a href=\".\">Reload</a>"));
+								return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_HTML, PageLoader.getDefaultPage("Somthing went wrong getting the plot data <a href=\".\" class=\"navLink\">Reload</a>"));
 							}
 							String plot = "{\"id\":\"" + id + "\",\"owner\":\"" + owner + "\",\"name\":\"" + name + "\",\"desc\":\"" + desc + "\"}";
 
