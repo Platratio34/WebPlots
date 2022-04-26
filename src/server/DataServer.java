@@ -23,6 +23,7 @@ import reporting.Report;
 import userManagment.LoginKey;
 import userManagment.User;
 import userManagment.UserDirectory;
+import util.PlotUpdater;
 
 public class DataServer extends NanoHTTPD {
 	
@@ -219,8 +220,18 @@ public class DataServer extends NanoHTTPD {
 									}
 									String plot = rset.getString("plot");
 									if(plot.equals(id)) {
-										postData = postData.replace("\"", "\\\"");
-										stmt.execute("update plots set data = \"" + postData + "\", dataTime = " + System.currentTimeMillis() + " where id = \"" + id + "\";");
+										JsonObj dt = JsonObj.parseD(postData);
+										ResultSet rset2 = stmt.executeQuery("select data from plots where id = \"" + id + "\";");
+										JsonObj db;
+										try {
+											rset2.next();
+											db = JsonObj.parseD(rset2.getString("data"));
+										} catch (Exception e) {
+											e.printStackTrace();
+											return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "SQL ERROR");
+										}
+										db = PlotUpdater.addUpdate(db, dt);
+										stmt.execute("update plots set data = \"" + dt.toStringC().replace("\"", "\\\"") + "\", dataTime = " + System.currentTimeMillis() + " where id = \"" + id + "\";");
 										return newFixedLengthResponse(Response.Status.OK, mimeType, ""+System.currentTimeMillis());
 									}
 								}
@@ -457,14 +468,22 @@ public class DataServer extends NanoHTTPD {
 							String desc;
 							String name;
 							String data;
+							JsonObj dataJ;
 							long dataTime;
 							try {
 								owner = rset.getString("owner");
 								desc = rset.getString("desciption");
 								name = rset.getString("name");
 								data = rset.getString("data");
-								data = data.replace("data=", "");
 								dataTime = rset.getLong("dataTime");
+								data = data.replace("data=", "");
+								dataJ = JsonObj.parseD(data);
+//								System.out.println("Trying to update");
+								if(PlotUpdater.update(dataJ)) {
+									data = dataJ.toStringC();
+									stmt.execute("update plots set data = \"" + data.replace("\"", "\\\"") + "\" where id = \"" + id + "\";");
+//									System.out.println("Updated plot data and saved: " + data);
+								}
 							} catch (Exception e) {
 								e.printStackTrace();
 								return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_HTML, PageLoader.getDefaultPage("Somthing went wrong getting the plot data <a href=\".\" class=\"navLink\">Reload</a>"));
@@ -481,16 +500,14 @@ public class DataServer extends NanoHTTPD {
 								return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "data="+data+"&dataTime="+dataTime);
 							} else if(path[2].equals("report")) {
 								if(params.containsKey("type")) {
-									JsonObj obj = JsonObj.parseD(data);
-//									System.out.println(obj);
 									String type = params.get("type").get(0);
 									Report rp = null;
 									if(type.equals("patch")) {
-										rp = new PatchReport(obj, name);
+										rp = new PatchReport(dataJ, name);
 									} else if(type.equals("equipment")) {
-										rp = new EquipmentReport(obj, name);
+										rp = new EquipmentReport(dataJ, name);
 									} else if(type.equals("combined")) {
-										rp = new CombinedReport(obj, name);
+										rp = new CombinedReport(dataJ, name);
 									}
 									if(rp != null) {
 										return newFixedLengthResponse(Response.Status.OK, MIME_HTML, rp.run());

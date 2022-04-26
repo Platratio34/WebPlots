@@ -2,6 +2,8 @@ package reporting;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map.Entry;
 
 import dataManagment.JsonObj;
 
@@ -15,9 +17,9 @@ public abstract class Report {
 		this.name = name;
 		lights = new ArrayList<ReportLight>();
 		if(obj.hasKey("lights")) {
-			JsonObj[] objs = obj.getKey("lights").getArr();
-			for(int i = 0; i < objs.length; i++) {
-				lights.add(new ReportLight(objs[i]));
+			HashMap<String, JsonObj> objs = obj.getKey("lights").getMap();
+			for(Entry<String, JsonObj> ent : objs.entrySet()) {
+				lights.add(new ReportLight(ent.getValue()));
 			}
 			Collections.sort(lights);
 		}
