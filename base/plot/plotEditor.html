@@ -159,7 +159,7 @@
 		    rpDl = document.querySelectorAll('.reportDownload');
 		    for(i = 0; i < rpDl.length; i++) {
 				str = plot.name;
-    			key=key.replace(" ","_");
+    			str = str.replace(" ","_");
 				rpDl[i].download = str + rpDl[i].download;
 			}
 		}
@@ -185,21 +185,6 @@
 							console.log("loading new");
 							let tSel = -1;
 							let tB = true;
-							if(selected != undefined) {
-								for(i = 0; i < data.lights.length; i++) {
-									if(data.lights[i] == selected) {
-										tB = false;
-										tSel = i;
-									}
-								}
-								if(tB) {
-									for(i = 0; i < data.bars.length; i++) {
-										if(data.bars[i] == selected) {
-											tSel = i;
-										}
-									}
-								}
-							}
 
 							let p = res.responseText.split("&");
 							// console.log(p[0])
@@ -215,19 +200,13 @@
 							}
 
 							if(selected != undefined) {
-								if(tB) {
-									if(tSel < data.bars.length) {
-										selectObj(data.bars[tSel]);
-									} else {
-										unselect();
-										log2("bar deleated");
-									}
+								if(data.lights[selected.id] != undefined) {
+									selectObj(data.lights[selected.id]);
 								} else {
-									if(tSel < data.lights.length) {
-										selectObj(data.lights[tSel]);
+									if(data.bars[selected.id] != undefined) {
+										selectObj(data.bars[selected.id]);
 									} else {
 										unselect();
-										log2("light deleated");
 									}
 								}
 							}
@@ -250,10 +229,13 @@
 								obj.pos = mouseOnGrid();
 								selectObj(obj);
 								if(clipboard.type == "bar") {
-									data.bars.push(obj);
+									// data.bars.push(obj);
+									data.bars[obj.id] = obj;
 								} else {
-									data.lights.push(obj);
+									// data.lights.push(obj);
+									data.lights[obj.id] = obj;
 								}
+								obj.cd = true;
 								changed = true;
 							}
 							if(sketch.keyIsPressed && sketch.keyCode === sketch.CONTROL) {
@@ -267,17 +249,18 @@
 										selected.dir = Math.round(selected.dir / 5) * 5;
 									}
 									selected.dir = Math.round(selected.dir);
+									selected.cd = true;
 									changed = true;
 								}
 							} else if(sketch.keyIsPressed && sketch.keyCode === sketch.SHIFT) {
 								if(selected) {
 									selected.pos = mouseOnGrid();
+									selected.cd = true;
 									changed = true;
 								}
 							} else {
 								let miss = true;
-								for(var i = 0; i < data.lights.length; i++) {
-									var light = data.lights[i];
+								for(const [mkey, light] of Object.entries(data.lights)) {
 									var mPos = mouseOnGrid();
 									if(mPos[0] == light.pos[0] && mPos[1] == light.pos[1]) {
 										miss = false;
@@ -287,8 +270,7 @@
 									}
 								}
 								if(miss) {
-									for(var i = 0; i < data.bars.length; i++) {
-										var bar = data.bars[i];
+									for(const [mkey, bar] of Object.entries(data.bars)) {
 										var mPos = mouseOnGrid();
 										if(mPos[0] == bar.pos[0] && mPos[1] == bar.pos[1]) {
 											miss = false;
@@ -322,21 +304,24 @@
 						}
 					} else if(sketch.keyIsDown(46)) {
 						if(selected != undefined) {
-							if(selected.type == "bar") {
-								for(i = 0; i < data.bars.length; i++) {
-									if(selected == data.bars[i]) {
-										data.bars.splice(i,1);
-									}
-									changed = true;
-								}
-							} else {
-								for(i = 0; i < data.lights.length; i++) {
-									if(selected == data.lights[i]) {
-										data.lights.splice(i,1);
-									}
-									changed = true;
-								}
-							}
+							// if(selected.type == "bar") {
+								// for(i = 0; i < data.bars.length; i++) {
+									// if(selected == data.bars[i]) {
+										// data.bars.splice(i,1);
+									// }
+									// changed = true;
+								// }
+							// } else {
+								// for(i = 0; i < data.lights.length; i++) {
+									// if(selected == data.lights[i]) {
+										// data.lights.splice(i,1);
+									// }
+									// changed = true;
+								// }
+							// }
+							selected.cd = true;
+							selected.type = "-Delete-";
+							changed = true;
 							unselect();
 						}
 					}
@@ -363,11 +348,11 @@
 					}
 				}
 				sketch.strokeWeight(1)
-				for(i = 0; i < data.bars.length; i++) {
-					this.drawObj(data.bars[i]);
+				for(const [mkey, bar] of Object.entries(data.bars)) {
+					this.drawObj(bar);
 				}
-				for(i = 0; i < data.lights.length; i++) {
-					this.drawObj(data.lights[i]);
+				for(const [mkey, light] of Object.entries(data.lights)) {
+					this.drawObj(light);
 				}
 				if(selected) {
 					sketch.textSize(14);
@@ -401,7 +386,7 @@
 				sketch.translate(lp[0], lp[1]);
 				sketch.rotate(toRad(obj.dir));
 				sketch.scale(scaleH/10);
-				if(obj.selected) {
+				if(obj.selected == true) {
 					let c = sketch.color("#fe0");
 					c.setAlpha(op);
 					sketch.stroke(c);
@@ -447,7 +432,7 @@
 					sketch.vertex(4, -20);
 					sketch.endShape(sketch.CLOSE);
 				} else if(obj.type == "mav-force-s-prof") {
-					if(obj.selected) {
+					if(obj.selected == true) {
 						let c = sketch.color("#ee0");
 						c.setAlpha(op);
 						sketch.stroke(c);
@@ -465,7 +450,7 @@
 					sketch.fill(c2);
 					sketch.rect(-3, -12, 6, 15);
 				} else if(obj.type == "bar") {
-					if(obj.selected) {
+					if(obj.selected == true) {
 						let c = sketch.color("#ee0");
 						c.setAlpha(op);
 						sketch.stroke(c);
@@ -499,15 +484,16 @@
 				sketch.noStroke();
 				dmxPatch = Array(512);
 				let maxUni = 1;
-				for(i = 0; i < data.lights.length; i++) {
-					var light = data.lights[i];
-					if(light.dmx) {
+				for(const [mkey, light] of Object.entries(data.lights)) {
+					if(light.dmx != undefined) {
+						light.dmx.adr = Number(light.dmx.adr);
+
 						maxUni = Math.max(maxUni, light.dmx.uni);
-						// console.log(light.dmx);
-						let aAdr = light.dmx.adr+((light.dmx.uni-1)*512);
-						// console.log(aAdr);
+
+						let aAdr = light.dmx.adr + ( (light.dmx.uni-1) * 512 );
+						console.log(aAdr);
 						for(j = 0; j < light.dmx.mode; j++) {
-							if(dmxPatch[aAdr+j]) {
+							if(dmxPatch[aAdr+j] != undefined) {
 								dmxPatch[aAdr+j].confict = true;
 								dmxPatch[aAdr+j].sel |= light.selected;
 								dmxPatch[aAdr+j].light = undefined;
@@ -560,14 +546,14 @@
 						}
 						let adr = i+((u-1)*512);
 						if(dmxPatch[adr] != undefined) {
-							if(dmxPatch[adr].sel) {
-								if(dmxPatch[adr].confict) {
+							if(dmxPatch[adr].sel == true) {
+								if(dmxPatch[adr].confict == true) {
 									sketch.fill("#a50");
 								} else {
 									sketch.fill("#aa0");
 								}
 							} else {
-								if(dmxPatch[adr].confict) {
+								if(dmxPatch[adr].confict == true) {
 									sketch.fill("#a00")
 								} else {
 									let l = dmxPatch[adr].light;
@@ -659,12 +645,18 @@
 				type:"",
 				pos:[0,0],
 				dir:0,
-				selected:false
+				selected:false,
+				id:""
 			};
 			obj.type = type;
+			let id = Math.floor(Date.now() / 100);
 			if(type == "bar") {
 				obj.length = 1;
+				id = "b"+id;
+			} else {
+				id = "l"+id;
 			}
+			obj.id = id;
 			return obj;
 		}
 
